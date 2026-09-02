@@ -87,28 +87,28 @@ object LoriNotificationManager {
             lower.contains("saare") || lower.contains("all") || lower.contains("unread") -> {
                 val unread = dao.getUnreadNotifications()
                 if (unread.isEmpty()) {
-                    "Bhai, abhi koi naya ya unread notification nahi hai."
+                    "Telemetry clear. Zero unread alerts pending in the queue."
                 } else {
                     val summary = unread.take(4).joinToString(". ") { n ->
-                        "${n.appName} par ${if (n.title.isNotBlank()) n.title else "kisi"} ka message: '${n.text}'"
+                        "${n.appName} (${if (n.title.isNotBlank()) n.title else "Alert"}): '${n.text}'"
                     }
-                    "Aapke ${unread.size} unread notifications hain: $summary"
+                    "Telemetry report: ${unread.size} unread alerts detected. $summary"
                 }
             }
             lower.contains("whatsapp") -> {
                 val waNotif = dao.getLatestNotificationForApp("WhatsApp")
                 if (waNotif != null) {
-                    "Latest WhatsApp message: ${waNotif.title} ne bheja hai - '${waNotif.text}'"
+                    "Latest WhatsApp transmission: ${waNotif.title} states — '${waNotif.text}'"
                 } else {
-                    "WhatsApp ka koi recent notification nahi mila bhai."
+                    "No pending WhatsApp transmissions logged in telemetry."
                 }
             }
             else -> {
                 val latest = dao.getLatestNotification()
                 if (latest != null) {
-                    "Last notification ${latest.appName} se aaya hai. ${if (latest.title.isNotBlank()) "${latest.title}: " else ""}'${latest.text}'"
+                    "Most recent alert from ${latest.appName}. ${if (latest.title.isNotBlank()) "${latest.title}: " else ""}'${latest.text}'"
                 } else {
-                    "Abhi koi notification record nahi mila bhai. Notification Listener permission check kar lijiye."
+                    "Zero incoming notifications in buffer. Listener active."
                 }
             }
         }

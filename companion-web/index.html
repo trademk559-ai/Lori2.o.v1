@@ -93,6 +93,24 @@
 
         <!-- Chat History Stream -->
         <div class="chat-container glass-card">
+          <div class="chat-header-bar">
+            <div class="chat-header-info">
+              <span class="chat-title">Conversation History</span>
+              <span id="chat-count-badge" class="chat-count-badge">1 message</span>
+            </div>
+            <div class="chat-export-actions">
+              <button id="btn-export-json" class="btn-xs btn-outline" title="Export as structured JSON file">
+                <svg viewBox="0 0 24 24" class="icon-svg-xs"><path fill="currentColor" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                Export JSON
+              </button>
+              <button id="btn-export-txt" class="btn-xs btn-outline" title="Export as plain text transcript">
+                <svg viewBox="0 0 24 24" class="icon-svg-xs"><path fill="currentColor" d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                Export TXT
+              </button>
+              <button id="btn-clear-chat" class="btn-xs btn-outline-danger" title="Clear chat history">Clear</button>
+            </div>
+          </div>
+
           <div id="chat-messages" class="chat-messages">
             <div class="message message-lori">
               <div class="message-bubble">

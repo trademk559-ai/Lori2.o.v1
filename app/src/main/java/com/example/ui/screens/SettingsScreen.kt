@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Warning
@@ -75,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.modules.notifications.LoriNotificationManager
 import com.example.modules.settings.PermissionHelper
+import com.example.ui.components.ExportChatDialog
 import com.example.ui.theme.LoriCyanSecondary
 import com.example.ui.theme.LoriIndigoPrimary
 import com.example.viewmodel.LoriMainViewModel
@@ -87,8 +89,17 @@ fun SettingsScreen(
     val context = LocalContext.current
     val settings by viewModel.settings.collectAsState()
     val permissions by viewModel.permissionStatus.collectAsState()
+    val messages by viewModel.allMessages.collectAsState()
 
     var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var showExportChatDialog by remember { mutableStateOf(false) }
+
+    if (showExportChatDialog) {
+        ExportChatDialog(
+            messages = messages,
+            onDismissRequest = { showExportChatDialog = false }
+        )
+    }
 
     if (showClearHistoryDialog) {
         AlertDialog(
@@ -454,6 +465,24 @@ fun SettingsScreen(
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = { showExportChatDialog = true },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("btn_export_chat_settings")
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Share,
+                        contentDescription = null,
+                        tint = LoriIndigoPrimary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Export Chat History (JSON / TXT)", color = LoriIndigoPrimary)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
                     onClick = { showClearHistoryDialog = true },

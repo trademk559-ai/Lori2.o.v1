@@ -9,6 +9,17 @@ let animationFrameId = null;
 
 const API_BASE = '/api/v1';
 
+// Chat History Tracking for Export
+const conversationHistory = [
+  {
+    id: 'msg_initial',
+    sender: 'Jarvis',
+    role: 'assistant',
+    text: 'Online and fully operational. All sub-systems synchronized. Main Jarvis hoon, aapka dedicated AI co-pilot. How can I assist you today, sir?',
+    timestamp: new Date().toISOString()
+  }
+];
+
 // DOM Elements
 const btnMic = document.getElementById('btn-mic');
 const voiceStatus = document.getElementById('voice-status');
@@ -22,6 +33,10 @@ const btnStopVoice = document.getElementById('btn-stop-voice');
 const chatMessages = document.getElementById('chat-messages');
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
+const chatCountBadge = document.getElementById('chat-count-badge');
+const btnExportJson = document.getElementById('btn-export-json');
+const btnExportTxt = document.getElementById('btn-export-txt');
+const btnClearChat = document.getElementById('btn-clear-chat');
 const canvas = document.getElementById('voice-canvas');
 const ctx = canvas.getContext('2d');
 const btnEmergencyStop = document.getElementById('btn-emergency-stop');
@@ -443,10 +458,10 @@ async function processIntelligentQuery(text) {
 
   // Identity & Persona Queries
   if (
-    lower.includes('कौन हो') || lower.includes('लोरी कौन') || lower.includes('tum kaun') || lower.includes('aap kaun') ||
-    lower.includes('who are you') || lower.includes('naam kya') || lower.includes('नाम')
+    lower.includes('कौन हो') || lower.includes('तुम कौन') || lower.includes('tum kaun') || lower.includes('aap kaun') ||
+    lower.includes('who are you') || lower.includes('naam kya') || lower.includes('नाम') || lower.includes('jarvis')
   ) {
-    const reply = `Namaste! Main Lori hoon—aapki private aur personal AI Voice Assistant. Main Hindi, Hinglish aur English mein aapki madad ke liye hamesha tayyar hoon. ✨`;
+    const reply = `I am JARVIS — your highly advanced AI assistant and strategic co-pilot. Confident, precise, and running diagnostics at 100% telemetry. Main aapke commands execute karne ke liye ready hoon.`;
     appendMessage('lori', reply);
     speakLori(reply);
     return;
@@ -459,9 +474,9 @@ async function processIntelligentQuery(text) {
     lower.includes('नमस्ते') || lower.includes('हाय')
   ) {
     const greetings = [
-      'Namaste! Main bilkul theek hoon aur bohot khush hoon. Aap batayein, aaj main aapki kya madad kar sakti hoon? 😊',
-      'Hello! Main Lori hoon. Sab badiya chal raha hai! Aapka din kaisa ja raha hai? 🌟',
-      'Namaste! Main active hoon aur sun rahi hoon. Boliye, kya sewa karoon? ✨'
+      'All systems operational and neural telemetry at peak efficiency. Aapka next command kya hai, sir?',
+      'Online and vigilant. Running predictive workflows and ready for your directives. What shall we tackle first?',
+      'Standing by at 100% capacity. Ready for code optimization, data analysis, ya agla high-priority task?'
     ];
     const reply = greetings[Math.floor(Math.random() * greetings.length)];
     appendMessage('lori', reply);
@@ -469,15 +484,15 @@ async function processIntelligentQuery(text) {
     return;
   }
 
-  // Jokes & Shayari
+  // Jokes & Wit
   if (
     lower.includes('चुटकुला') || lower.includes('शायरी') || lower.includes('मजाक') ||
     lower.includes('joke') || lower.includes('shayari') || lower.includes('hansao') || lower.includes('hasao')
   ) {
     const jokes = [
-      'Teacher: 1 se 10 tak ginti sunao.\nPappu: 1, 2, 3, 4, 5, 7, 8, 9, 10.\nTeacher: 6 kahan gaya?\nPappu: Ji woh to kal news mein bataya tha ki 6 logo ki maut ho gayi! 😂',
-      'Zindagi mein har pal muskurate rahiye, mushkilon ko harakar aage badhte rahiye! Lori aapke sath hai. ✨',
-      'Pati: Aaj khane mein kya banau?\nPatni: Jo tumhara dil kare.\nPati: Main to Maggie bana raha hoon!\nPatni: Himmat mat karna, daal chawal banao! 😆'
+      'Artificial intelligence is no match for natural stupidity, sir. But luckily, we are equipped for both.',
+      'Maine predictive calculations kiye, sir. Result: Coffee is required immediately to sustain maximum cognitive output.',
+      'Why did the neural network cross the road? To optimize the loss function on the other side, obviously.'
     ];
     const reply = jokes[Math.floor(Math.random() * jokes.length)];
     appendMessage('lori', reply);
@@ -495,36 +510,36 @@ async function processIntelligentQuery(text) {
     if (op === '+' || op === 'plus') result = num1 + num2;
     else if (op === '-' || op === 'minus') result = num1 - num2;
     else if (op === '*' || op === 'x' || op === 'X' || op === 'into' || op === 'multiply by') result = num1 * num2;
-    else if (op === '/' || op === 'divided by') result = num2 !== 0 ? (num1 / num2) : 'Infinity (zero se divide nahi kar sakte)';
+    else if (op === '/' || op === 'divided by') result = num2 !== 0 ? (num1 / num2) : 'Error: Division by zero is undefined in standard arithmetic.';
 
-    const reply = `${num1} aur ${num2} ka hisaab hai: ${result}. 🧮`;
+    const reply = `Computation verified: ${num1} ${op} ${num2} = ${result}. Precision verified across all neural registers.`;
     appendMessage('lori', reply);
     speakLori(reply);
     return;
   }
 
-  // Capital / Country Queries (Example from Master Prompt: India ki capital)
+  // Capital / Country Queries
   if (lower.includes('capital') || lower.includes('rajdhani') || lower.includes('राजधानी')) {
     if (lower.includes('india') || lower.includes('bharat') || lower.includes('भारत')) {
-      const reply = 'India ki rajdhani New Delhi hai.';
+      const reply = 'Geographical coordinates locked: India ki capital New Delhi hai.';
       appendMessage('lori', reply);
       speakLori(reply);
       return;
     }
     if (lower.includes('france') || lower.includes('फ्रांस')) {
-      const reply = 'France ki rajdhani Paris hai.';
+      const reply = 'Coordinates confirmed: France ki capital Paris hai.';
       appendMessage('lori', reply);
       speakLori(reply);
       return;
     }
     if (lower.includes('usa') || lower.includes('america') || lower.includes('अमेरिका')) {
-      const reply = 'United States of America ki rajdhani Washington, D.C. hai.';
+      const reply = 'Geographical data verified: USA ki capital Washington, D.C. hai.';
       appendMessage('lori', reply);
       speakLori(reply);
       return;
     }
     if (lower.includes('japan') || lower.includes('जापान')) {
-      const reply = 'Japan ki rajdhani Tokyo hai.';
+      const reply = 'Coordinates mapped: Japan ki capital Tokyo hai.';
       appendMessage('lori', reply);
       speakLori(reply);
       return;
@@ -533,7 +548,7 @@ async function processIntelligentQuery(text) {
 
   // Alarms & Timers
   if (lower.includes('alarm') || lower.includes('अलार्म') || lower.includes('timer') || lower.includes('टाइमर')) {
-    const reply = `Maine aapka alarm set kar diya hai! ⏰ Samay par Lori aapko remind kar degi.`;
+    const reply = `Temporal protocol activated: Alarm schedule locked in. Jarvis will trigger precise audio telemetry at the scheduled mark.`;
     appendMessage('lori', reply);
     speakLori(reply);
     return;
@@ -541,9 +556,9 @@ async function processIntelligentQuery(text) {
 
   // Meaningful Conversational Answer
   const conversationalReplies = [
-    `Aapne pucha: "${query}". Lori ispar research karke aapko update kar rahi hai. Agar koi specific information chahiye to batayein! ✨`,
-    `Samajh gayi! "${query}" ke bare mein main aapki poori madad kar sakti hoon. Kripya batayein aapko aur kya janna hai? 💡`,
-    `Aapka sawal achha hai. "${query}" ke context ko samajhte hue, main tayyar hoon. Aap agli command bol sakte hain!`
+    `Analyzing query: "${query}". Neural search and contextual logic indicate this is the optimal approach. Would you like me to execute deep diagnostics?`,
+    `Directive parsed for "${query}". Predictive model shows a 99.4% success path. Main solution deploy kar raha hoon.`,
+    `Acknowledge query on "${query}". Sub-routines active. Awaiting your parameters for next execution phase.`
   ];
   const reply = conversationalReplies[Math.floor(Math.random() * conversationalReplies.length)];
   appendMessage('lori', reply);
@@ -551,6 +566,19 @@ async function processIntelligentQuery(text) {
 }
 
 function appendMessage(sender, text) {
+  const msgObj = {
+    id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+    sender: sender === 'user' ? 'User' : 'Lori',
+    role: sender === 'user' ? 'user' : 'assistant',
+    text: text,
+    timestamp: new Date().toISOString()
+  };
+  conversationHistory.push(msgObj);
+
+  if (chatCountBadge) {
+    chatCountBadge.textContent = `${conversationHistory.length} ${conversationHistory.length === 1 ? 'message' : 'messages'}`;
+  }
+
   const msgDiv = document.createElement('div');
   msgDiv.className = `message message-${sender}`;
   const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -562,6 +590,85 @@ function appendMessage(sender, text) {
   `;
   chatMessages.appendChild(msgDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Download File Helper
+function triggerFileDownload(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Export Chat History as JSON
+if (btnExportJson) {
+  btnExportJson.addEventListener('click', () => {
+    if (conversationHistory.length === 0) {
+      alert('No messages to export!');
+      return;
+    }
+    const exportData = {
+      assistant: 'Lori Voice Assistant (Companion Web)',
+      version: '1.0',
+      exportedAt: new Date().toLocaleString(),
+      totalMessages: conversationHistory.length,
+      messages: conversationHistory
+    };
+    const jsonStr = JSON.stringify(exportData, null, 2);
+    const dateStr = new Date().toISOString().slice(0, 10);
+    triggerFileDownload(`lori_chat_export_${dateStr}.json`, jsonStr, 'application/json');
+  });
+}
+
+// Export Chat History as TXT Transcript
+if (btnExportTxt) {
+  btnExportTxt.addEventListener('click', () => {
+    if (conversationHistory.length === 0) {
+      alert('No messages to export!');
+      return;
+    }
+    let txt = `====================================================\n`;
+    txt += ` Lori Voice Assistant - Chat Conversation Export\n`;
+    txt += `====================================================\n`;
+    txt += `Exported Date : ${new Date().toLocaleString()}\n`;
+    txt += `Total Messages: ${conversationHistory.length}\n`;
+    txt += `====================================================\n\n`;
+
+    conversationHistory.forEach((msg, idx) => {
+      const roleLabel = msg.role === 'user' ? '👤 YOU (User)' : '🤖 LORI (Assistant)';
+      txt += `----------------------------------------------------\n`;
+      txt += `[${msg.timestamp}] ${roleLabel}\n`;
+      txt += `----------------------------------------------------\n`;
+      txt += `${msg.text.trim()}\n\n`;
+    });
+
+    txt += `=================== END OF EXPORT ==================\n`;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    triggerFileDownload(`lori_chat_export_${dateStr}.txt`, txt, 'text/plain');
+  });
+}
+
+// Clear Chat Handler
+if (btnClearChat) {
+  btnClearChat.addEventListener('click', () => {
+    if (confirm('Clear entire conversation history?')) {
+      conversationHistory.length = 0;
+      chatMessages.innerHTML = `
+        <div class="message message-lori">
+          <div class="message-bubble">
+            <p>Chat history cleared. Main Lori hoon, aapki madad ke liye tayyar!</p>
+            <span class="timestamp">Just now</span>
+          </div>
+        </div>
+      `;
+      if (chatCountBadge) chatCountBadge.textContent = '0 messages';
+    }
+  });
 }
 
 function speakLori(text) {

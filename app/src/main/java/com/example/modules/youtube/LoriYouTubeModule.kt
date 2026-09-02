@@ -64,9 +64,9 @@ object LoriYouTubeModule {
         }
 
         val spokenMsg = if (moodOrGenre != null) {
-            "Bilkul bhai! Main aapke mood ke hisaab se YouTube par gana chala rahi hoon: $finalQuery"
+            "Frequency calibrated. Streaming audio sequence on YouTube: $finalQuery"
         } else {
-            "Sure bhai! YouTube par '$finalQuery' play kar rahi hoon."
+            "Initializing media protocol. Playing '$finalQuery' on YouTube."
         }
 
         return YouTubeRequest(

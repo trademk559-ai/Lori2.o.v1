@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -59,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ChatMessageEntity
 import com.example.modules.search.LoriWebSearchModule
+import com.example.ui.components.ExportChatDialog
 import com.example.ui.components.WhatsAppConfirmationCard
 import com.example.ui.theme.LoriCyanSecondary
 import com.example.ui.theme.LoriIndigoPrimary
@@ -76,6 +78,7 @@ fun ChatScreen(
     val pendingWhatsAppDraft by viewModel.pendingWhatsAppDraft.collectAsState()
     var textInput by remember { mutableStateOf("") }
     var showClearChatDialog by remember { mutableStateOf(false) }
+    var showExportChatDialog by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
 
@@ -84,6 +87,13 @@ fun ChatScreen(
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
         }
+    }
+
+    if (showExportChatDialog) {
+        ExportChatDialog(
+            messages = messages,
+            onDismissRequest = { showExportChatDialog = false }
+        )
     }
 
     if (showClearChatDialog) {
@@ -115,7 +125,7 @@ fun ChatScreen(
             .fillMaxSize()
             .testTag("chat_screen")
     ) {
-        // Chat Header with Clear action
+        // Chat Header with Export and Clear actions
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -137,15 +147,28 @@ fun ChatScreen(
             }
 
             if (messages.isNotEmpty()) {
-                IconButton(
-                    onClick = { showClearChatDialog = true },
-                    modifier = Modifier.testTag("clear_chat_icon_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.DeleteOutline,
-                        contentDescription = "Clear Chat History",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = { showExportChatDialog = true },
+                        modifier = Modifier.testTag("export_chat_icon_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Share,
+                            contentDescription = "Export Chat History",
+                            tint = LoriIndigoPrimary
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showClearChatDialog = true },
+                        modifier = Modifier.testTag("clear_chat_icon_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.DeleteOutline,
+                            contentDescription = "Clear Chat History",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
