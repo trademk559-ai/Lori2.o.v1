@@ -8,9 +8,6 @@ let animationFrameId = null;
 const API_BASE = '/api/v1';
 
 // DOM Elements
-const authOverlay = document.getElementById('auth-overlay');
-const loginForm = document.getElementById('login-form');
-const loginError = document.getElementById('login-error');
 const btnMic = document.getElementById('btn-mic');
 const voiceStatus = document.getElementById('voice-status');
 const chatMessages = document.getElementById('chat-messages');
@@ -18,16 +15,11 @@ const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const canvas = document.getElementById('voice-canvas');
 const ctx = canvas.getContext('2d');
-const btnLogout = document.getElementById('btn-logout');
 const btnEmergencyStop = document.getElementById('btn-emergency-stop');
 const btnPrivacyKill = document.getElementById('btn-privacy-kill');
 
-// Check Initial Auth
-if (authToken) {
-  authOverlay.classList.add('hidden');
-} else {
-  authOverlay.classList.remove('hidden');
-}
+// Direct Access - No login required
+authToken = 'lori-direct-access-token';
 
 // Tab Switching
 document.querySelectorAll('.nav-item').forEach(btn => {
@@ -38,45 +30,6 @@ document.querySelectorAll('.nav-item').forEach(btn => {
     const tabId = btn.getAttribute('data-tab');
     document.getElementById(`section-${tabId}`).classList.add('active');
   });
-});
-
-// Login Handler
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const phone = document.getElementById('auth-phone').value.trim();
-  const password = document.getElementById('auth-password').value.trim();
-
-  loginError.classList.add('hidden');
-
-  try {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phoneNumber: phone, password, deviceId: 'web-companion' })
-    });
-
-    const data = await res.json();
-    if (res.ok && data.accessToken) {
-      authToken = data.accessToken;
-      localStorage.setItem('lori_token', authToken);
-      authOverlay.classList.add('hidden');
-    } else {
-      loginError.textContent = data.error || 'Authentication failed.';
-      loginError.classList.remove('hidden');
-    }
-  } catch (err) {
-    // Standalone demonstration mode fallback if backend is running locally
-    authToken = 'local-offline-session';
-    localStorage.setItem('lori_token', authToken);
-    authOverlay.classList.add('hidden');
-  }
-});
-
-// Logout Handler
-btnLogout.addEventListener('click', () => {
-  localStorage.removeItem('lori_token');
-  authToken = null;
-  authOverlay.classList.remove('hidden');
 });
 
 // Emergency Kill Switch

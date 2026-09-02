@@ -10,31 +10,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Single-User Login Modal -->
-  <div id="auth-overlay" class="modal-overlay">
-    <div class="glass-card auth-card">
-      <div class="logo-badge">
-        <span class="logo-glyph">✨</span>
-      </div>
-      <h2>Lori Private Access</h2>
-      <p class="auth-subtitle">Tum bolo, Lori samjhe.</p>
-      
-      <form id="login-form">
-        <div class="input-group">
-          <label for="auth-phone">Registered Phone Number</label>
-          <input type="tel" id="auth-phone" placeholder="+91 98765 43210" required>
-        </div>
-        <div class="input-group">
-          <label for="auth-password">Master Password / PIN</label>
-          <input type="password" id="auth-password" placeholder="••••••••" required>
-        </div>
-        <button type="submit" class="btn-primary full-width" id="btn-login">Unlock Lori</button>
-        <p id="login-error" class="error-text hidden"></p>
-      </form>
-    </div>
-  </div>
-
-  <!-- Main Companion Dashboard -->
+  <!-- Main Companion Dashboard (Direct Access) -->
   <div class="app-layout">
     <!-- Sidebar Navigation -->
     <aside class="sidebar glass-card">
@@ -68,7 +44,6 @@
           <svg viewBox="0 0 24 24" class="btn-icon"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-2h-2v2zm0-4h2V7h-2v6z"/></svg>
           <span>STOP ALL ACTIVITY</span>
         </button>
-        <button id="btn-logout" class="btn-secondary full-width">Logout</button>
       </div>
     </aside>
 

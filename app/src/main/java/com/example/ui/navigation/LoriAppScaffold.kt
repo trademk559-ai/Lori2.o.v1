@@ -85,15 +85,7 @@ fun LoriAppScaffold(
 
     var activeSubTool by remember { mutableStateOf<String?>(null) } // "whatsapp", "call", "youtube", "privacy"
 
-    // If not authenticated, show Single User Login Screen
-    if (!authState.isAuthenticated) {
-        LoginScreen(
-            authManager = viewModel.authManager,
-            onLoginSuccess = { /* Automatically updates state */ }
-        )
-        return
-    }
-
+    // Direct Access - No login gate
     // Permission Launchers
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
