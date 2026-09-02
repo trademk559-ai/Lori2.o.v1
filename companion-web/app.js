@@ -671,6 +671,58 @@ if (btnClearChat) {
   });
 }
 
+// Context-Aware Smart Chips Initialization & Handlers
+const smartChipsBar = document.getElementById('smart-chips-bar');
+
+function bindSmartChipsEvents() {
+  if (!smartChipsBar) return;
+  const chips = smartChipsBar.querySelectorAll('.smart-chip');
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const prompt = chip.getAttribute('data-prompt');
+      if (prompt) {
+        handleUserQuery(prompt, false);
+        updateSmartChipsContext(prompt);
+      }
+    });
+  });
+}
+
+function updateSmartChipsContext(lastQuery) {
+  if (!smartChipsBar) return;
+  const lower = (lastQuery || '').toLowerCase();
+  let suggestions = [
+    { label: 'What is my schedule?', icon: '<path fill="currentColor" d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>' },
+    { label: 'Remind me later', icon: '<path fill="currentColor" d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>' },
+    { label: 'Tell me more', icon: '<path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>' }
+  ];
+
+  if (lower.includes('weather') || lower.includes('rain') || lower.includes('mausam') || lower.includes('forecast')) {
+    suggestions = [
+      { label: 'Will it rain today?', icon: '<path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>' },
+      { label: 'What is my schedule?', icon: '<path fill="currentColor" d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/>' },
+      { label: 'Tell me more', icon: '<path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>' }
+    ];
+  } else if (lower.includes('music') || lower.includes('song') || lower.includes('gana') || lower.includes('youtube')) {
+    suggestions = [
+      { label: 'Play next song', icon: '<path fill="currentColor" d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>' },
+      { label: 'Remind me later', icon: '<path fill="currentColor" d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/>' },
+      { label: 'Tell me more', icon: '<path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>' }
+    ];
+  }
+
+  smartChipsBar.innerHTML = suggestions.map(s => `
+    <button type="button" class="smart-chip" data-prompt="${s.label}">
+      <svg viewBox="0 0 24 24" class="chip-icon">${s.icon}</svg>
+      <span>${s.label}</span>
+    </button>
+  `).join('');
+
+  bindSmartChipsEvents();
+}
+
+bindSmartChipsEvents();
+
 function speakLori(text) {
   if (!synth) return;
   

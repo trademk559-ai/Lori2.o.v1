@@ -1,8 +1,10 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,13 +23,18 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VolumeUp
@@ -79,6 +86,10 @@ fun ChatScreen(
     var textInput by remember { mutableStateOf("") }
     var showClearChatDialog by remember { mutableStateOf(false) }
     var showExportChatDialog by remember { mutableStateOf(false) }
+
+    val smartSuggestions = remember(messages) {
+        getContextAwareSuggestions(messages)
+    }
 
     val listState = rememberLazyListState()
 
@@ -233,73 +244,88 @@ fun ChatScreen(
             tonalElevation = 6.dp,
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.92f),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
-                OutlinedTextField(
-                    value = textInput,
-                    onValueChange = { textInput = it },
-                    placeholder = { Text("Lori se kuchh bhi puchiye...") },
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("chat_input_text_field"),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
-                    ),
-                    maxLines = 4
-                )
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                // Voice Mic Button
-                IconButton(
-                    onClick = onOpenVoiceOverlay,
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
-                        .testTag("chat_voice_input_button")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Mic,
-                        contentDescription = "Voice Input",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    OutlinedTextField(
+                        value = textInput,
+                        onValueChange = { textInput = it },
+                        placeholder = { Text("Lori se kuchh bhi puchiye...") },
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("chat_input_text_field"),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)
+                        ),
+                        maxLines = 4
                     )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Voice Mic Button
+                    IconButton(
+                        onClick = onOpenVoiceOverlay,
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer)
+                            .border(1.dp, Color.White.copy(alpha = 0.5f), CircleShape)
+                            .testTag("chat_voice_input_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Mic,
+                            contentDescription = "Voice Input",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // Send Button
+                    IconButton(
+                        onClick = {
+                            if (textInput.isNotBlank()) {
+                                viewModel.sendTextMessage(textInput)
+                                textInput = ""
+                            }
+                        },
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                            .testTag("chat_send_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Send,
+                            contentDescription = "Send Message",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Send Button
-                IconButton(
-                    onClick = {
-                        if (textInput.isNotBlank()) {
-                            viewModel.sendTextMessage(textInput)
-                            textInput = ""
-                        }
+                // Three context-aware 'smart chip' suggestions beneath the chat input
+                SmartChipSuggestionsRow(
+                    suggestions = smartSuggestions,
+                    onChipClick = { suggestion ->
+                        viewModel.sendTextMessage(suggestion.prompt)
                     },
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
-                        .testTag("chat_send_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Send,
-                        contentDescription = "Send Message",
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
+                    modifier = Modifier.testTag("smart_chip_suggestions_row")
+                )
             }
         }
     }
@@ -429,6 +455,110 @@ private fun ChatBubble(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Context-aware smart chip suggestion item.
+ */
+data class SmartChipSuggestion(
+    val id: String,
+    val text: String,
+    val prompt: String = text,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector? = null
+)
+
+/**
+ * Evaluates chat conversation history to dynamically generate three context-aware smart suggestions.
+ * Defaults to the three core common user queries: 'What is my schedule?', 'Remind me later', and 'Tell me more'.
+ */
+fun getContextAwareSuggestions(messages: List<ChatMessageEntity>): List<SmartChipSuggestion> {
+    val lastAssistantMsg = messages.lastOrNull { it.role == "assistant" }
+    val lastMsg = messages.lastOrNull()
+    val combined = "${lastMsg?.text.orEmpty()} ${lastAssistantMsg?.text.orEmpty()}".lowercase()
+
+    return when {
+        combined.contains("weather") || combined.contains("rain") || combined.contains("mausam") || combined.contains("temperature") || combined.contains("forecast") -> listOf(
+            SmartChipSuggestion("chip_weather_rain", "Will it rain today?", "Will it rain today?", Icons.Filled.Info),
+            SmartChipSuggestion("chip_weather_schedule", "What is my schedule?", "What is my schedule?", Icons.Filled.DateRange),
+            SmartChipSuggestion("chip_weather_more", "Tell me more", "Tell me more about today's forecast", Icons.Filled.Info)
+        )
+        combined.contains("schedule") || combined.contains("alarm") || combined.contains("remind") || combined.contains("meeting") || combined.contains("calendar") || combined.contains("task") -> listOf(
+            SmartChipSuggestion("chip_schedule_query", "What is my schedule?", "What is my schedule?", Icons.Filled.DateRange),
+            SmartChipSuggestion("chip_schedule_remind", "Remind me later", "Remind me later", Icons.Filled.Notifications),
+            SmartChipSuggestion("chip_schedule_more", "Tell me more", "Tell me more about my upcoming tasks", Icons.Filled.Info)
+        )
+        combined.contains("youtube") || combined.contains("music") || combined.contains("song") || combined.contains("gaana") || combined.contains("play") -> listOf(
+            SmartChipSuggestion("chip_music_play", "Play next song", "Play next song", Icons.Filled.PlayArrow),
+            SmartChipSuggestion("chip_music_remind", "Remind me later", "Remind me later", Icons.Filled.Notifications),
+            SmartChipSuggestion("chip_music_more", "Tell me more", "Tell me more", Icons.Filled.Info)
+        )
+        combined.contains("whatsapp") || combined.contains("message") || combined.contains("call") || combined.contains("bhej") -> listOf(
+            SmartChipSuggestion("chip_msg_schedule", "What is my schedule?", "What is my schedule?", Icons.Filled.DateRange),
+            SmartChipSuggestion("chip_msg_remind", "Remind me later", "Remind me later", Icons.Filled.Notifications),
+            SmartChipSuggestion("chip_msg_more", "Tell me more", "Tell me more", Icons.Filled.Info)
+        )
+        else -> listOf(
+            SmartChipSuggestion("chip_default_schedule", "What is my schedule?", "What is my schedule?", Icons.Filled.DateRange),
+            SmartChipSuggestion("chip_default_remind", "Remind me later", "Remind me later", Icons.Filled.Notifications),
+            SmartChipSuggestion("chip_default_more", "Tell me more", "Tell me more", Icons.Filled.Info)
+        )
+    }
+}
+
+/**
+ * Three horizontally scrollable smart chips rendered beneath the chat input field.
+ */
+@Composable
+private fun SmartChipSuggestionsRow(
+    suggestions: List<SmartChipSuggestion>,
+    onChipClick: (SmartChipSuggestion) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        suggestions.forEachIndexed { index, suggestion ->
+            Surface(
+                onClick = { onChipClick(suggestion) },
+                shape = RoundedCornerShape(18.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                ),
+                shadowElevation = 1.dp,
+                modifier = Modifier
+                    .testTag("smart_chip_$index")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    if (suggestion.icon != null) {
+                        Icon(
+                            imageVector = suggestion.icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = suggestion.text,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1
+                    )
                 }
             }
         }
