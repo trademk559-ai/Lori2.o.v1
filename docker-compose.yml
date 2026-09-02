@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  lori-db:
+    image: postgres:16-alpine
+    container_name: lori_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-lori_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-lori_secure_pass_9921}
+      POSTGRES_DB: ${DB_NAME:-lori_assistant_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - lori_pgdata:/var/lib/postgresql/data
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-lori_admin} -d ${DB_NAME:-lori_assistant_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  lori-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lori_backend
+    restart: unless-stopped
+    depends_on:
+      lori-db:
+        condition: service_healthy
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      DB_HOST: lori-db
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-lori_admin}
+      DB_PASSWORD: ${DB_PASSWORD:-lori_secure_pass_9921}
+      DB_NAME: ${DB_NAME:-lori_assistant_db}
+      JWT_SECRET: ${JWT_SECRET:-lori_super_secret_jwt_key_9921}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-lori_super_secret_refresh_key_9922}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+    ports:
+      - "3000:3000"
+
+volumes:
+  lori_pgdata:

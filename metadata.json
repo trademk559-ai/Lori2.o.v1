@@ -1,0 +1,6 @@
+{
+  "name": "Lori",
+  "description": "Personal AI voice assistant for Hindi/Hinglish - Tum bolo, Lori samjhe.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
