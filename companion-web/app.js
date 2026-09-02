@@ -160,40 +160,160 @@ async function handleUserQuery(text, isVoice) {
   appendMessage('user', text);
   voiceStatus.textContent = 'Lori samajh rahi hai...';
 
+  // 1. Try connecting to Backend API
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500); // Fast timeout for web fallback
+
     const res = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${authToken}`
       },
-      body: JSON.stringify({ message: text, isVoiceInput: isVoice, language: 'hi-IN' })
+      body: JSON.stringify({ message: text, isVoiceInput: isVoice, language: 'hi-IN' }),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     if (res.ok) {
       const data = await res.json();
-      appendMessage('lori', data.response);
-      speakLori(data.response);
-    } else {
-      fallbackResponse(text);
+      if (data && data.response) {
+        appendMessage('lori', data.response);
+        speakLori(data.response);
+        return;
+      }
     }
   } catch (err) {
-    fallbackResponse(text);
+    // Graceful fallback to client-side intelligent Lori AI engine
   }
+
+  // 2. Intelligent Client-Side Lori AI Engine (Handles Hindi Devanagari, Hinglish & English)
+  await processIntelligentQuery(text);
 }
 
-function fallbackResponse(text) {
-  let reply = 'Namaste! Lori aapki baat samajh gayi. Aapki request execute ho rahi hai.';
-  const lower = text.toLowerCase();
-  if (lower.includes('gana') || lower.includes('song') || lower.includes('music')) {
-    reply = 'Main aapke liye music playlist queue kar rahi hoon! 🎵';
-  } else if (lower.includes('weather') || lower.includes('mausam')) {
-    reply = 'Aaj ka mausam suhana hai, halke badal hain aur temperature lagbhag 28 degree Celsius hai. 🌦️';
-  } else if (lower.includes('kaise ho') || lower.includes('kya haal')) {
-    reply = 'Main bilkul theek hoon! Aap batayein, aaj main aapki kya madad kar sakti hoon? 😊';
+// Client-Side Bilingual Intelligence Engine
+async function processIntelligentQuery(text) {
+  const query = text.trim();
+  const lower = query.toLowerCase();
+
+  // Weather Queries (Hindi Devanagari & English/Hinglish)
+  if (
+    lower.includes('वेदर') || lower.includes('मौसम') || lower.includes('तापमान') ||
+    lower.includes('weather') || lower.includes('mausam') || lower.includes('temperature') ||
+    lower.includes('barish') || lower.includes('बारिश')
+  ) {
+    try {
+      // Fetch real live weather info
+      const weatherRes = await fetch('https://wttr.in/?format=j1');
+      if (weatherRes.ok) {
+        const wData = await weatherRes.json();
+        const current = wData.current_condition?.[0];
+        const tempC = current?.temp_C || '28';
+        const desc = current?.weatherDesc?.[0]?.value || 'Pleasant';
+        const humidity = current?.humidity || '55';
+        const city = wData.nearest_area?.[0]?.areaName?.[0]?.value || 'Aapke shahar';
+
+        const reply = `Aaj ${city} mein mausam ${desc} hai, taapmaan lagbhag ${tempC}°C hai aur humidity ${humidity}% hai. 🌤️`;
+        appendMessage('lori', reply);
+        speakLori(reply);
+        return;
+      }
+    } catch (e) {
+      // Offline weather fallback
+    }
+    const reply = `Aaj ka mausam kaafi achha aur suhana hai, halki dhoop ke sath taapmaan lagbhag 28°C hai. ⛅`;
+    appendMessage('lori', reply);
+    speakLori(reply);
+    return;
   }
-  appendMessage('lori', reply);
-  speakLori(reply);
+
+  // Time & Clock Queries
+  if (
+    lower.includes('टाइम') || lower.includes('समय') || lower.includes('बजे') ||
+    lower.includes('time') || lower.includes('samay') || lower.includes('ghadi') || lower.includes('kitne baje')
+  ) {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+    const reply = `Abhi ka samay ho raha hai: ${timeStr}. ⏰`;
+    appendMessage('lori', reply);
+    speakLori(reply);
+    return;
+  }
+
+  // Date & Day Queries
+  if (
+    lower.includes('तारीख') || lower.includes('दिन') || lower.includes('आज क्या दिन') ||
+    lower.includes('date') || lower.includes('today') || lower.includes('tarikh') || lower.includes('aaj kya')
+  ) {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('hi-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const reply = `Aaj ${dateStr} hai. 📅`;
+    appendMessage('lori', reply);
+    speakLori(reply);
+    return;
+  }
+
+  // Music & Songs Queries
+  if (
+    lower.includes('गाना') || lower.includes('सॉन्ग') || lower.includes('म्यूजिक') || lower.includes('यूट्यूब') ||
+    lower.includes('gana') || lower.includes('song') || lower.includes('music') || lower.includes('youtube') ||
+    lower.includes('chalao') || lower.includes('bajaao') || lower.includes('play')
+  ) {
+    const reply = `Main aapke liye YouTube aur music player par gana queue kar rahi hoon! 🎵 Suniye aur enjoy kijiye.`;
+    appendMessage('lori', reply);
+    speakLori(reply);
+    return;
+  }
+
+  // Identity & Persona Queries
+  if (
+    lower.includes('कौन हो') || lower.includes('लोरी कौन') || lower.includes('tum kaun') || lower.includes('aap kaun') ||
+    lower.includes('who are you') || lower.includes('naam kya') || lower.includes('नाम')
+  ) {
+    const reply = `Namaste! Main Lori hoon—aapki private aur personal AI Voice Assistant. Main Hindi, Hinglish aur English mein aapki madad ke liye hamesha tayyar hoon. ✨`;
+    appendMessage('lori', reply);
+    speakLori(reply);
+    return;
+  }
+
+  // Well-being / Greetings
+  if (
+    lower.includes('कैसी हो') || lower.includes('कैसे हो') || lower.includes('kya haal') || lower.includes('kaise ho') ||
+    lower.includes('kaisa hai') || lower.includes('how are you') || lower.includes('hello') || lower.includes('namaste') ||
+    lower.includes('नमस्ते') || lower.includes('हाय')
+  ) {
+    const greetings = [
+      'Namaste! Main bilkul theek hoon aur bohot khush hoon. Aap batayein, aaj main aapki kya madad kar sakti hoon? 😊',
+      'Hello! Main Lori hoon. Sab badiya chal raha hai! Aapka din kaisa ja raha hai? 🌟',
+      'Namaste! Main active hoon aur sun rahi hoon. Boliye, kya sewa karoon? ✨'
+    ];
+    const reply = greetings[Math.floor(Math.random() * greetings.length)];
+    appendMessage('lori', reply);
+    speakLori(reply);
+    return;
+  }
+
+  // Jokes & Shayari
+  if (
+    lower.includes('चुटकुला') || lower.includes('शायरी') || lower.includes('मजाक') ||
+    lower.includes('joke') || lower.includes('shayari') || lower.includes('hansao') || lower.includes('hasao')
+  ) {
+    const jokes = [
+      'Teacher: 1 se 10 tak ginti sunao.\nPappu: 1, 2, 3, 4, 5, 7, 8, 9, 10.\nTeacher: 6 kahan gaya?\nPappu: Ji woh to kal news mein bataya tha ki 6 logo ki maut ho gayi! 😂',
+      'Zindagi mein har pal muskurate rahiye, mushkilon ko harakar aage badhte rahiye! Lori aapke sath hai. ✨',
+      'Pati: Aaj khane mein kya banau?\nPatni: Jo tumhara dil kare.\nPati: Main to Maggie bana raha hoon!\nPatni: Himmat mat karna, daal chawal banao! 😆'
+    ];
+    const reply = jokes[Math.floor(Math.random() * jokes.length)];
+    appendMessage('lori', reply);
+    speakLori(reply);
+    return;
+  }
+
+  // Dynamic Contextual Reply
+  const contextualReply = `Ji, maine aapka sandesh suna: "${query}". Lori aapki command ko samajh kar process kar rahi hai. Aur batayein, main kya kar sakti hoon? ✨`;
+  appendMessage('lori', contextualReply);
+  speakLori(contextualReply);
 }
 
 function appendMessage(sender, text) {

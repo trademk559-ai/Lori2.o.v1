@@ -41,15 +41,124 @@ body {
   display: flex;
   width: 100vw;
   height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar {
-  width: 300px;
+  width: 280px;
   margin: 16px 0 16px 16px;
   display: flex;
   flex-direction: column;
   padding: 24px;
-  gap: 32px;
+  gap: 24px;
+  flex-shrink: 0;
+}
+
+/* Responsive Mobile Layout */
+@media (max-width: 768px) {
+  .app-layout {
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  .sidebar {
+    width: 100%;
+    margin: 0;
+    padding: 10px 16px;
+    border-radius: 0 0 20px 20px;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    gap: 8px;
+    flex-shrink: 0;
+    order: 2; /* Bottom bar on mobile */
+    background: rgba(18, 16, 22, 0.95);
+  }
+
+  .brand {
+    display: none; /* Hide brand header on mobile bottom bar */
+  }
+
+  .sidebar-footer {
+    display: none; /* Relocate emergency stop inside the main view */
+  }
+
+  .nav-links {
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 4px;
+  }
+
+  .nav-item {
+    padding: 10px 12px;
+    font-size: 12px;
+    flex-direction: column;
+    gap: 4px;
+    border-radius: 12px;
+    flex: 1;
+    justify-content: center;
+  }
+
+  .nav-item span {
+    font-size: 11px;
+  }
+
+  .nav-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .main-content {
+    order: 1;
+    flex: 1;
+    padding: 12px 14px 8px 14px;
+    width: 100%;
+  }
+
+  .content-header h2 {
+    font-size: 20px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+  }
+
+  .header-badges {
+    flex-wrap: wrap;
+  }
+
+  .voice-centerpiece {
+    padding: 16px 12px;
+    gap: 10px;
+  }
+
+  .waveform-container {
+    height: 60px;
+  }
+
+  .mic-orb {
+    width: 80px;
+    height: 80px;
+  }
+
+  .orb-mic-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .chat-container {
+    padding: 14px;
+    min-height: 220px;
+  }
+
+  .chat-messages {
+    max-height: 42vh;
+  }
+
+  .message-bubble {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
 }
 
 .brand {
