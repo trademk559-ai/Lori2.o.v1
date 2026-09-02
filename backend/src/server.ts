@@ -5,6 +5,7 @@ import { config } from './config';
 import authRoutes from './routes/authRoutes';
 import chatRoutes from './routes/chatRoutes';
 import deviceRoutes from './routes/deviceRoutes';
+import memoryRoutes from './routes/memoryRoutes';
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.get('/health', (req, res) => {
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/devices', deviceRoutes);
+app.use('/api/v1/memory', memoryRoutes);
 
 // Global Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
