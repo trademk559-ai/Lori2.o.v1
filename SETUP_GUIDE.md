@@ -91,16 +91,32 @@ curl -X POST http://localhost:3000/api/v1/auth/setup \
 
 ---
 
-## 🌐 Section 4: Companion Website
+## 🌐 Section 4: Companion Website & Netlify Deployment
 
-The companion website (`/companion-web`) provides browser-based access:
-1. Host using Nginx or serve static files:
-   ```bash
-   cd companion-web && python3 -m http.server 8080
-   ```
-2. Access at `http://localhost:8080`.
-3. Log in using your master credentials.
-4. Voice recognition works directly via browser Web Speech API, with live waveform animations and emergency kill switch telemetry.
+The companion website (`/companion-web`) provides instant browser-based access with voice recognition, telemetry controls, and smart chips.
+
+### Deploying to Netlify (Recommended)
+
+#### Method A: Netlify Drop (Instant Drag & Drop)
+1. Export or download the project files.
+2. Go to **[app.netlify.com/drop](https://app.netlify.com/drop)**.
+3. Drag and drop the **`companion-web`** folder onto the page.
+4. Your site will immediately be live on a custom `https://<site-name>.netlify.app` URL.
+
+#### Method B: Netlify GitHub / Git Integration
+The repository includes a preconfigured `netlify.toml`:
+1. Push this repository to GitHub or GitLab.
+2. In Netlify, click **Add new site** > **Import an existing project**.
+3. Select your repository. Netlify will automatically detect `netlify.toml` and set:
+   - **Publish directory**: `companion-web`
+4. Click **Deploy Site**.
+
+### Local Preview
+To test locally before deploying:
+```bash
+cd companion-web && python3 -m http.server 8080
+```
+Open `http://localhost:8080` in your browser.
 
 ---
 
