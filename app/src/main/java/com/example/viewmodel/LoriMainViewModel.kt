@@ -117,10 +117,24 @@ class LoriMainViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setContinuousVoiceMode(enabled: Boolean) {
+        updateSettings { it.copy(isContinuousVoiceMode = enabled) }
+        voiceEngine.setContinuousMode(enabled)
+    }
+
+    fun pauseContinuousVoice() {
+        voiceEngine.pauseVoiceMode()
+    }
+
+    fun resumeContinuousVoice() {
+        voiceEngine.resumeVoiceMode()
+    }
+
     // --- Voice Assistant Trigger ---
     fun startVoiceInteraction() {
         _isVoiceOverlayActive.value = true
         voiceEngine.stopSpeaking()
+        voiceEngine.setContinuousMode(settings.value.isContinuousVoiceMode)
 
         val langCode = settings.value.preferredVoiceLang.ifBlank { "hi-IN" }
         voiceEngine.startListening(
@@ -135,6 +149,7 @@ class LoriMainViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun stopVoiceInteraction() {
+        voiceEngine.setContinuousMode(false)
         voiceEngine.stopListening()
         voiceEngine.stopSpeaking()
         _isVoiceOverlayActive.value = false
@@ -146,10 +161,11 @@ class LoriMainViewModel(application: Application) : AndroidViewModel(application
 
     fun processVoiceCommand(spokenText: String) {
         viewModelScope.launch {
+            val lower = spokenText.lowercase().trim()
+
             // Check if there is an active WhatsApp confirmation pending
             val draft = _pendingWhatsAppDraft.value
             if (draft != null) {
-                val lower = spokenText.lowercase().trim()
                 if (lower.contains("haan") || lower.contains("bhej do") || lower.contains("kar do") || lower.contains("yes") || lower.contains("send")) {
                     confirmSendWhatsApp()
                     return@launch
@@ -181,24 +197,26 @@ class LoriMainViewModel(application: Application) : AndroidViewModel(application
                 }
             }
 
-            // Normal AI Processing
+            // Indicate Thinking / Searching State
+            if (lower.contains("weather") || lower.contains("mausam") || lower.contains("news") || lower.contains("khabar") || lower.contains("search") || lower.contains("score")) {
+                voiceEngine.setVoiceState(VoiceState.SEARCHING, "Searching live information...")
+            } else {
+                voiceEngine.setVoiceState(VoiceState.THINKING, "Lori soch rahi hai...")
+            }
+
+            // Normal AI Processing with full message understanding
             val result = chatEngine.processUserMessage(spokenText, isVoiceInput = true)
             when (result) {
                 is ChatResult.Success -> {
                     if (result.whatsAppDraft != null) {
                         _pendingWhatsAppDraft.value = result.whatsAppDraft
                     }
-                    // Speak response aloud
+                    // Speak response aloud (preventing self-listening inside speak)
                     voiceEngine.speak(
                         result.responseText,
                         settings.value.ttsSpeechRate,
                         settings.value.ttsSpeechPitch
                     )
-
-                    // If continuous mode is enabled, listen again after speaking finishes
-                    if (settings.value.isContinuousVoiceMode && _isVoiceOverlayActive.value) {
-                        // Handled via UI or continuation if user desires
-                    }
                 }
                 is ChatResult.Error -> {
                     voiceEngine.speak(

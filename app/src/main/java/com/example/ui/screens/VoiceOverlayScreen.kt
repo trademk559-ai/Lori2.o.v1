@@ -96,19 +96,29 @@ fun VoiceOverlayScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Continuous Mode",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Switch(
-                        checked = settings.isContinuousVoiceMode,
-                        onCheckedChange = { isEnabled ->
-                            viewModel.updateSettings { it.copy(isContinuousVoiceMode = isEnabled) }
-                        }
-                    )
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = if (settings.isContinuousVoiceMode) Color(0xFF6750A4).copy(alpha = 0.35f) else Color.White.copy(alpha = 0.1f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (settings.isContinuousVoiceMode) Color(0xFFD0BCFF) else Color.White.copy(alpha = 0.2f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (settings.isContinuousVoiceMode) "Hands-Free: ON" else "Hands-Free: OFF",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (settings.isContinuousVoiceMode) Color(0xFFD0BCFF) else Color.White.copy(alpha = 0.7f)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = settings.isContinuousVoiceMode,
+                            onCheckedChange = { isEnabled ->
+                                viewModel.setContinuousVoiceMode(isEnabled)
+                            }
+                        )
+                    }
                 }
 
                 IconButton(
@@ -163,7 +173,8 @@ fun VoiceOverlayScreen(
                     onClick = {
                         when (voiceState) {
                             VoiceState.SPEAKING -> viewModel.stopSpeaking()
-                            VoiceState.LISTENING -> viewModel.stopVoiceInteraction()
+                            VoiceState.LISTENING, VoiceState.USER_SPEAKING -> viewModel.stopVoiceInteraction()
+                            VoiceState.PAUSED -> viewModel.resumeContinuousVoice()
                             else -> viewModel.startVoiceInteraction()
                         }
                     },
@@ -172,23 +183,58 @@ fun VoiceOverlayScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Voice State Title
-                Text(
-                    text = when (voiceState) {
-                        VoiceState.LISTENING -> "Lori sun rahi hai..."
-                        VoiceState.SPEAKING -> "Lori bol rahi hai..."
-                        VoiceState.PROCESSING -> "Lori samajh rahi hai..."
-                        else -> "Tap Orb or speak “Hey ${settings.wakePhrase}”"
+                // Voice State Badge & Title
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = when (voiceState) {
+                        VoiceState.LISTENING -> Color(0xFF10B981).copy(alpha = 0.25f)
+                        VoiceState.USER_SPEAKING -> Color(0xFF06B6D4).copy(alpha = 0.25f)
+                        VoiceState.THINKING -> Color(0xFFF59E0B).copy(alpha = 0.25f)
+                        VoiceState.SEARCHING -> Color(0xFF8B5CF6).copy(alpha = 0.25f)
+                        VoiceState.PROCESSING -> Color(0xFF3B82F6).copy(alpha = 0.25f)
+                        VoiceState.SPEAKING -> Color(0xFFD946EF).copy(alpha = 0.25f)
+                        VoiceState.PAUSED -> Color(0xFFEF4444).copy(alpha = 0.25f)
+                        else -> Color.White.copy(alpha = 0.1f)
                     },
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFD0BCFF)
-                )
+                    border = androidx.compose.foundation.BorderStroke(
+                        1.dp,
+                        when (voiceState) {
+                            VoiceState.LISTENING -> Color(0xFF10B981)
+                            VoiceState.USER_SPEAKING -> Color(0xFF06B6D4)
+                            VoiceState.THINKING -> Color(0xFFF59E0B)
+                            VoiceState.SEARCHING -> Color(0xFF8B5CF6)
+                            VoiceState.PROCESSING -> Color(0xFF3B82F6)
+                            VoiceState.SPEAKING -> Color(0xFFD946EF)
+                            VoiceState.PAUSED -> Color(0xFFEF4444)
+                            else -> Color.White.copy(alpha = 0.2f)
+                        }
+                    ),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                ) {
+                    Text(
+                        text = when (voiceState) {
+                            VoiceState.LISTENING -> "● LISTENING..."
+                            VoiceState.USER_SPEAKING -> "● YOU ARE SPEAKING..."
+                            VoiceState.THINKING -> "● THINKING..."
+                            VoiceState.SEARCHING -> "● SEARCHING LIVE WEB..."
+                            VoiceState.PROCESSING -> "● PROCESSING COMPLETE REQUEST..."
+                            VoiceState.SPEAKING -> "● LORI SPEAKING..."
+                            VoiceState.PAUSED -> "❚❚ PAUSED"
+                            VoiceState.STOPPED -> "■ STOPPED"
+                            else -> "IDLE (READY)"
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                    )
+                }
 
                 Text(
                     text = statusMsg,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFCAC4D0)
+                    color = Color(0xFFCAC4D0),
+                    textAlign = TextAlign.Center
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -198,7 +244,7 @@ fun VoiceOverlayScreen(
                     voiceState = voiceState,
                     rmsDb = rmsDb,
                     height = 76.dp,
-                    showLabel = true,
+                    showLabel = false,
                     modifier = Modifier.fillMaxWidth(0.92f)
                 )
 
@@ -233,12 +279,12 @@ fun VoiceOverlayScreen(
                 }
             }
 
-            // Bottom Voice Action Controls
+            // Bottom Voice Action Controls (Pause, Resume, Stop Lori)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.Center,
+                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (voiceState == VoiceState.SPEAKING) {
@@ -250,15 +296,40 @@ fun VoiceOverlayScreen(
                     ) {
                         Icon(imageVector = Icons.Filled.Stop, contentDescription = "Stop", tint = Color.White)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Lori ko roko (Stop Speaking)", color = Color.White)
+                        Text("Stop Speaking", color = Color.White)
                     }
-                } else if (voiceState == VoiceState.LISTENING) {
+                } else if (voiceState == VoiceState.LISTENING || voiceState == VoiceState.USER_SPEAKING) {
                     OutlinedButton(
+                        onClick = { viewModel.pauseContinuousVoice() },
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.testTag("voice_pause_button")
+                    ) {
+                        Text("Pause", color = Color.White)
+                    }
+
+                    Button(
                         onClick = { viewModel.stopVoiceInteraction() },
                         shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.testTag("voice_cancel_listening_button")
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                        modifier = Modifier.testTag("voice_stop_listening_button")
                     ) {
-                        Text("Listening Band Karein", color = Color.White)
+                        Text("Stop Lori", color = Color.White)
+                    }
+                } else if (voiceState == VoiceState.PAUSED) {
+                    Button(
+                        onClick = { viewModel.resumeContinuousVoice() },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        modifier = Modifier.testTag("voice_resume_button")
+                    ) {
+                        Text("Resume Listening", color = Color.White)
+                    }
+                    
+                    OutlinedButton(
+                        onClick = { viewModel.stopVoiceInteraction() },
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text("Stop Lori", color = Color.White)
                     }
                 } else {
                     Button(
@@ -269,7 +340,7 @@ fun VoiceOverlayScreen(
                     ) {
                         Icon(imageVector = Icons.Filled.Mic, contentDescription = "Speak", tint = Color.White)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Boliye (Tap to Talk)", color = Color.White)
+                        Text("Start Voice Mode", color = Color.White)
                     }
                 }
             }

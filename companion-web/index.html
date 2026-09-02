@@ -64,6 +64,15 @@
 
         <!-- Voice Visualizer Orb -->
         <div class="voice-centerpiece glass-card">
+          <div class="voice-top-controls">
+            <label class="toggle-container" title="Keep conversation active without pressing mic repeatedly">
+              <input type="checkbox" id="continuous-voice-toggle">
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">Hands-Free Continuous Mode</span>
+            </label>
+            <div id="voice-state-badge" class="state-badge badge-idle">● IDLE (READY)</div>
+          </div>
+
           <div class="waveform-container">
             <canvas id="voice-canvas" width="600" height="120"></canvas>
           </div>
@@ -72,7 +81,14 @@
               <svg viewBox="0 0 24 24" class="orb-mic-icon"><path fill="currentColor" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path fill="currentColor" d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
             </button>
           </div>
-          <p id="voice-status" class="voice-status">Tap the orb or speak in Hindi/Hinglish</p>
+          <p id="voice-status" class="voice-status">Tap the orb or start Hands-Free mode</p>
+
+          <div class="voice-action-bar">
+            <button id="btn-start-voice" class="btn-primary btn-sm">Start Voice Mode</button>
+            <button id="btn-pause-voice" class="btn-secondary btn-sm hidden">Pause</button>
+            <button id="btn-resume-voice" class="btn-primary btn-sm hidden">Resume</button>
+            <button id="btn-stop-voice" class="btn-danger btn-sm hidden">Stop Lori</button>
+          </div>
         </div>
 
         <!-- Chat History Stream -->

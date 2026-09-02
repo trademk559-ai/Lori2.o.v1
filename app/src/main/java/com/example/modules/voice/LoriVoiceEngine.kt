@@ -23,11 +23,17 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 enum class VoiceState {
+    VOICE_MODE_OFF,
     IDLE,
     LISTENING,
+    USER_SPEAKING,
     PROCESSING,
+    SEARCHING,
+    THINKING,
     SPEAKING,
-    ERROR
+    PAUSED,
+    ERROR,
+    STOPPED
 }
 
 class LoriVoiceEngine private constructor(private val context: Context) {
@@ -50,6 +56,11 @@ class LoriVoiceEngine private constructor(private val context: Context) {
 
     private val _statusMessage = MutableStateFlow("Ready")
     val statusMessage: StateFlow<String> = _statusMessage.asStateFlow()
+
+    // Continuous Hands-free Conversation State
+    private var isContinuousModeEnabled = false
+    private var isPaused = false
+    private var activeLanguageCode = "hi-IN"
 
     private var onSpeechResultCallback: ((String) -> Unit)? = null
     private var onSpeechErrorCallback: ((String) -> Unit)? = null
@@ -80,6 +91,16 @@ class LoriVoiceEngine private constructor(private val context: Context) {
                         scope.launch {
                             _voiceState.value = VoiceState.IDLE
                             _statusMessage.value = "Ready"
+
+                            // PREVENT SELF-LISTENING & AUTO-RESUME CONTINUOUS LISTENING
+                            // Wait for a short transition (450ms) to ensure audio hardware is silent
+                            if (isContinuousModeEnabled && !isPaused && onSpeechResultCallback != null) {
+                                mainHandler.postDelayed({
+                                    if (isContinuousModeEnabled && !isPaused && _voiceState.value != VoiceState.SPEAKING) {
+                                        startListeningInternal(activeLanguageCode)
+                                    }
+                                }, 450L)
+                            }
                         }
                     }
 
@@ -88,6 +109,11 @@ class LoriVoiceEngine private constructor(private val context: Context) {
                         scope.launch {
                             _voiceState.value = VoiceState.IDLE
                             _statusMessage.value = "Voice output error"
+                            if (isContinuousModeEnabled && !isPaused) {
+                                mainHandler.postDelayed({
+                                    startListeningInternal(activeLanguageCode)
+                                }, 500L)
+                            }
                         }
                     }
                 })
@@ -96,16 +122,58 @@ class LoriVoiceEngine private constructor(private val context: Context) {
     }
 
     /**
+     * Set Continuous Voice Conversation Mode (ON / OFF)
+     */
+    fun setContinuousMode(enabled: Boolean) {
+        isContinuousModeEnabled = enabled
+        if (!enabled && _voiceState.value == VoiceState.LISTENING) {
+            stopListening()
+        }
+    }
+
+    fun isContinuousMode(): Boolean = isContinuousModeEnabled
+
+    /**
+     * Pause continuous voice listening
+     */
+    fun pauseVoiceMode() {
+        isPaused = true
+        stopListening()
+        _voiceState.value = VoiceState.PAUSED
+        _statusMessage.value = "Voice Mode Paused. Tap Resume."
+    }
+
+    /**
+     * Resume continuous voice listening
+     */
+    fun resumeVoiceMode() {
+        isPaused = false
+        if (onSpeechResultCallback != null) {
+            startListeningInternal(activeLanguageCode)
+        }
+    }
+
+    /**
      * Starts listening directly from the device microphone for Hindi and Hinglish commands.
+     * Completes full message capture without cutting off user during natural pauses.
      */
     fun startListening(
         languageCode: String = "hi-IN",
         onResult: (String) -> Unit,
         onError: (String) -> Unit = {}
     ) {
-        stopSpeaking()
+        isPaused = false
+        activeLanguageCode = languageCode
         onSpeechResultCallback = onResult
         onSpeechErrorCallback = onError
+        startListeningInternal(languageCode)
+    }
+
+    private fun startListeningInternal(languageCode: String) {
+        // Strict check: if Lori is speaking, NEVER start listening (prevents self-listening)
+        if (textToSpeech?.isSpeaking == true) {
+            return
+        }
 
         // Verify microphone permission
         val hasMicPermission = ContextCompat.checkSelfPermission(
@@ -117,7 +185,7 @@ class LoriVoiceEngine private constructor(private val context: Context) {
             val err = "Microphone permission required! Please allow audio permission in Settings."
             _voiceState.value = VoiceState.ERROR
             _statusMessage.value = err
-            onError(err)
+            onSpeechErrorCallback?.invoke(err)
             return
         }
 
@@ -125,7 +193,7 @@ class LoriVoiceEngine private constructor(private val context: Context) {
             val err = "Speech recognition is not available on this device."
             _voiceState.value = VoiceState.ERROR
             _statusMessage.value = err
-            onError(err)
+            onSpeechErrorCallback?.invoke(err)
             return
         }
 
@@ -136,12 +204,17 @@ class LoriVoiceEngine private constructor(private val context: Context) {
                     setRecognitionListener(object : RecognitionListener {
                         override fun onReadyForSpeech(params: Bundle?) {
                             _voiceState.value = VoiceState.LISTENING
-                            _statusMessage.value = "Lori sun rahi hai... (Hindi / Hinglish me boliye)"
+                            _statusMessage.value = if (isContinuousModeEnabled) {
+                                "Lori sun rahi hai... (Continuous Hands-Free)"
+                            } else {
+                                "Lori sun rahi hai... (Hindi / Hinglish)"
+                            }
                             _liveSpokenText.value = ""
                         }
 
                         override fun onBeginningOfSpeech() {
-                            _statusMessage.value = "Listening..."
+                            _voiceState.value = VoiceState.USER_SPEAKING
+                            _statusMessage.value = "Listening to your message..."
                         }
 
                         override fun onRmsChanged(rmsdB: Float) {
@@ -152,12 +225,12 @@ class LoriVoiceEngine private constructor(private val context: Context) {
 
                         override fun onEndOfSpeech() {
                             _voiceState.value = VoiceState.PROCESSING
-                            _statusMessage.value = "Lori samajh rahi hai... (Processing)"
+                            _statusMessage.value = "Lori samajh rahi hai... (Processing full request)"
                         }
 
                         override fun onError(error: Int) {
                             _rmsDb.value = 0f
-                            _voiceState.value = VoiceState.IDLE
+                            
                             val message = when (error) {
                                 SpeechRecognizer.ERROR_AUDIO -> "Audio recording error. Check mic."
                                 SpeechRecognizer.ERROR_CLIENT -> "Client error in SpeechRecognizer."
@@ -165,13 +238,26 @@ class LoriVoiceEngine private constructor(private val context: Context) {
                                 SpeechRecognizer.ERROR_NETWORK -> "Internet connection chahiye speech recognition ke liye."
                                 SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Network timeout ho gaya."
                                 SpeechRecognizer.ERROR_NO_MATCH -> "Kuchh sunai nahi diya. Kripya dobara boliye."
-                                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy hai. Dubara tap karein."
+                                SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Recognizer busy hai."
                                 SpeechRecognizer.ERROR_SERVER -> "Server error occurred."
-                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Timeout. Kuchh nahi suna."
+                                SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Listening timeout."
                                 else -> "Speech recognition error ($error)"
                             }
-                            _statusMessage.value = message
-                            onSpeechErrorCallback?.invoke(message)
+
+                            // If in continuous mode and it was a timeout / no match, seamlessly restart listening
+                            if (isContinuousModeEnabled && !isPaused && (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT || error == SpeechRecognizer.ERROR_NO_MATCH)) {
+                                _voiceState.value = VoiceState.LISTENING
+                                _statusMessage.value = "Lori sun rahi hai... (Hands-free active)"
+                                mainHandler.postDelayed({
+                                    if (isContinuousModeEnabled && !isPaused && _voiceState.value != VoiceState.SPEAKING) {
+                                        startListeningInternal(activeLanguageCode)
+                                    }
+                                }, 300L)
+                            } else {
+                                _voiceState.value = if (isContinuousModeEnabled) VoiceState.LISTENING else VoiceState.IDLE
+                                _statusMessage.value = message
+                                onSpeechErrorCallback?.invoke(message)
+                            }
                         }
 
                         override fun onResults(results: Bundle?) {
@@ -179,13 +265,18 @@ class LoriVoiceEngine private constructor(private val context: Context) {
                             val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                             val text = matches?.firstOrNull()?.trim() ?: ""
                             _liveSpokenText.value = text
-                            _voiceState.value = VoiceState.IDLE
-                            _statusMessage.value = "Ready"
 
                             if (text.isNotEmpty()) {
+                                _voiceState.value = VoiceState.PROCESSING
+                                _statusMessage.value = "Processing complete message..."
                                 onSpeechResultCallback?.invoke(text)
                             } else {
-                                onSpeechErrorCallback?.invoke("No speech recognized")
+                                if (isContinuousModeEnabled && !isPaused) {
+                                    startListeningInternal(activeLanguageCode)
+                                } else {
+                                    _voiceState.value = VoiceState.IDLE
+                                    _statusMessage.value = "Ready"
+                                }
                             }
                         }
 
@@ -194,6 +285,7 @@ class LoriVoiceEngine private constructor(private val context: Context) {
                             val text = partial?.firstOrNull()?.trim() ?: ""
                             if (text.isNotEmpty()) {
                                 _liveSpokenText.value = text
+                                _voiceState.value = VoiceState.USER_SPEAKING
                             }
                         }
 
@@ -201,7 +293,7 @@ class LoriVoiceEngine private constructor(private val context: Context) {
                     })
                 }
 
-                // Multilingual Intent for Hindi & Hinglish recognition
+                // Full Listening Parameters: 2500ms silence length for natural pauses without premature interruption
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageCode)
@@ -210,10 +302,9 @@ class LoriVoiceEngine private constructor(private val context: Context) {
                     putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                     putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1800L)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L)
-                    // Additional languages for seamless Hindi + English (Hinglish) understanding
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2500L)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2500L)
                     putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("hi-IN", "en-IN", "hi-Latn", "en-US"))
                 }
 
@@ -222,7 +313,7 @@ class LoriVoiceEngine private constructor(private val context: Context) {
                 Log.e("LoriVoiceEngine", "Error starting speech recognition", e)
                 _voiceState.value = VoiceState.ERROR
                 _statusMessage.value = "Mic start karne me dikkat aayi: ${e.localizedMessage}"
-                onError(e.localizedMessage ?: "Unknown error")
+                onSpeechErrorCallback?.invoke(e.localizedMessage ?: "Unknown error")
             }
         }
     }
@@ -231,7 +322,10 @@ class LoriVoiceEngine private constructor(private val context: Context) {
         mainHandler.post {
             try {
                 speechRecognizer?.stopListening()
-                _voiceState.value = VoiceState.IDLE
+                speechRecognizer?.cancel()
+                if (_voiceState.value != VoiceState.SPEAKING && _voiceState.value != VoiceState.PAUSED) {
+                    _voiceState.value = if (isContinuousModeEnabled) VoiceState.STOPPED else VoiceState.IDLE
+                }
                 _rmsDb.value = 0f
             } catch (e: Exception) {
                 Log.e("LoriVoiceEngine", "Error stopping listening", e)
@@ -239,13 +333,26 @@ class LoriVoiceEngine private constructor(private val context: Context) {
         }
     }
 
+    fun setVoiceState(state: VoiceState, message: String = "") {
+        _voiceState.value = state
+        if (message.isNotBlank()) {
+            _statusMessage.value = message
+        }
+    }
+
+    /**
+     * Speaks text using Text-to-Speech.
+     * Prevents self-listening by stopping microphone recognition during speech.
+     */
     fun speak(text: String, speechRate: Float = 1.0f, pitch: Float = 1.05f) {
         if (!isTtsInitialized || text.isBlank()) return
-        stopSpeaking()
+        
+        // Strict: stop mic before speaking so Lori doesn't hear herself
+        stopListening()
+        
         textToSpeech?.setSpeechRate(speechRate)
         textToSpeech?.setPitch(pitch)
 
-        // Clean out markdown asterisks or citations before speaking for clear audio
         val cleanText = text
             .replace(Regex("\\*\\*(.*?)\\*\\*"), "$1")
             .replace(Regex("\\*(.*?)\\*"), "$1")
@@ -265,52 +372,27 @@ class LoriVoiceEngine private constructor(private val context: Context) {
         _statusMessage.value = "Ready"
     }
 
-    /**
-     * Checks if input contains the Lori wake phrase
-     */
-    fun matchesWakeWord(input: String, wakePhrase: String = "Lori"): Boolean {
-        val lower = input.lowercase().trim()
-        val phrase = wakePhrase.lowercase().trim()
-        val wakeKeywords = listOf(
-            phrase,
-            "hey $phrase",
-            "he $phrase",
-            "hello $phrase",
-            "$phrase suno",
-            "suno $phrase",
-            "$phrase ek kaam karo",
-            "$phrase ji"
-        )
-        return wakeKeywords.any { lower.startsWith(it) || lower.contains(it) }
+    fun isWakeWordDetected(spokenText: String, wakePhrase: String = "Lori"): Boolean {
+        val lower = spokenText.lowercase()
+        val wake = wakePhrase.lowercase()
+        return lower.contains("hey $wake") ||
+                lower.contains("hi $wake") ||
+                lower.contains("namaste $wake") ||
+                lower.contains("ok $wake") ||
+                lower.startsWith(wake) ||
+                lower.contains(wake)
     }
 
-    /**
-     * Strips wake word from user speech to extract actual command
-     */
-    fun extractCommandAfterWakeWord(input: String, wakePhrase: String = "Lori"): String {
-        var clean = input.trim()
-        val phrase = wakePhrase.trim()
-        val prefixes = listOf(
-            "hey $phrase,", "hey $phrase",
-            "he $phrase,", "he $phrase",
-            "hello $phrase,", "hello $phrase",
-            "$phrase suno,", "$phrase suno",
-            "suno $phrase,", "suno $phrase",
-            "$phrase ek kaam karo,", "$phrase ek kaam karo",
-            "$phrase ji,", "$phrase ji",
-            "$phrase,", "$phrase"
-        )
-        for (prefix in prefixes) {
-            if (clean.startsWith(prefix, ignoreCase = true)) {
-                clean = clean.substring(prefix.length).trim()
-                break
-            }
-        }
-        return clean.trimStart(',', ':', '-', ' ').trim()
+    fun extractCommandAfterWakeWord(spokenText: String, wakePhrase: String = "Lori"): String {
+        val regex = Regex("(?i)(?:hey\\s+|hi\\s+|namaste\\s+|ok\\s+)?${Regex.escape(wakePhrase)}[,\\s]*(.*)", RegexOption.IGNORE_CASE)
+        val match = regex.find(spokenText.trim())
+        val command = match?.groups?.get(1)?.value?.trim()
+        return if (!command.isNullOrBlank()) command else spokenText.trim()
     }
 
     fun destroy() {
         try {
+            isContinuousModeEnabled = false
             speechRecognizer?.destroy()
             speechRecognizer = null
             textToSpeech?.stop()
@@ -332,4 +414,5 @@ class LoriVoiceEngine private constructor(private val context: Context) {
         }
     }
 }
+
 
