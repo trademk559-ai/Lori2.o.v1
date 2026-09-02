@@ -114,6 +114,7 @@ router.post('/', authenticateToken, apiRateLimiter, async (req: AuthenticatedReq
 
     if (config.geminiApiKey) {
       try {
+        // Dynamic Tool configuration: Google Search for Current Information
         const response = await ai.models.generateContent({
           model: config.geminiModel,
           contents: [
@@ -123,13 +124,14 @@ router.post('/', authenticateToken, apiRateLimiter, async (req: AuthenticatedReq
           config: {
             systemInstruction: LORI_SYSTEM_INSTRUCTION,
             temperature: 0.7,
-            maxOutputTokens: 1000
+            maxOutputTokens: 1000,
+            tools: [{ googleSearch: {} }] // Live Web Search Grounding for current information
           }
         });
 
         responseText = response.text || 'Main aapki baat samajh gayi.';
 
-        // Grounding extraction if available
+        // Grounding extraction if available from Google Search
         const groundingMetadata = (response as any).candidates?.[0]?.groundingMetadata;
         if (groundingMetadata && groundingMetadata.groundingChunks) {
           sourcesJson = groundingMetadata.groundingChunks
