@@ -9,11 +9,14 @@ import android.provider.CalendarContract
 import android.provider.MediaStore
 import android.provider.Settings
 import android.util.Log
+import com.example.modules.device.DeviceController
 
 /**
  * Command Executor using official, supported Android Intents and API contracts.
  */
 class CommandExecutor(private val context: Context) {
+
+    val deviceController = DeviceController(context)
 
     fun execute(command: LoriCommand, userConfirmed: Boolean = false): CommandExecutionResult {
         // Enforce confirmation check for sensitive actions
@@ -32,6 +35,38 @@ class CommandExecutor(private val context: Context) {
                 CommandIntent.SET_REMINDER, CommandIntent.CALENDAR_ACTION -> createCalendarEvent(command.title ?: "Lori Reminder")
                 CommandIntent.SUPPORTED_PHONE_ACTION -> initiateCallAction(command.target ?: "")
                 CommandIntent.PAUSE_MEDIA, CommandIntent.STOP_MEDIA -> mediaControlAction()
+                CommandIntent.TOGGLE_FLASHLIGHT -> {
+                    val enable = command.enable ?: !deviceController.isTorchActive()
+                    val (success, msg) = deviceController.setFlashlight(enable)
+                    if (success) CommandExecutionResult.Success(msg, launchedIntent = false)
+                    else CommandExecutionResult.Error(msg)
+                }
+                CommandIntent.CHECK_BATTERY -> {
+                    val info = deviceController.getBatteryTelemetry()
+                    CommandExecutionResult.Success(info.summaryText, launchedIntent = false)
+                }
+                CommandIntent.VOLUME_CONTROL -> {
+                    val direction = command.volumeLevel ?: 1
+                    val msg = deviceController.adjustVolume(direction)
+                    CommandExecutionResult.Success(msg, launchedIntent = false)
+                }
+                CommandIntent.SMART_ROUTINE -> {
+                    val reply = if (command.routineType == "night") {
+                        deviceController.runNightRoutine()
+                    } else {
+                        deviceController.runMorningRoutine()
+                    }
+                    CommandExecutionResult.Success(reply, launchedIntent = false)
+                }
+                CommandIntent.DIAGNOSTICS -> {
+                    val reply = deviceController.runSystemDiagnostics()
+                    CommandExecutionResult.Success(reply, launchedIntent = false)
+                }
+                CommandIntent.TOGGLE_SOS_STROBE -> {
+                    val (success, msg) = deviceController.toggleSosStrobe()
+                    if (success) CommandExecutionResult.Success(msg, launchedIntent = false)
+                    else CommandExecutionResult.Error(msg)
+                }
                 else -> CommandExecutionResult.Error("Unsupported action")
             }
         } catch (e: Exception) {
@@ -48,9 +83,9 @@ class CommandExecutor(private val context: Context) {
                 }
                 if (intent.resolveActivity(context.packageManager) != null) {
                     context.startActivity(intent)
-                    CommandExecutionResult.Success("Camera open ho gaya hai.")
+                    CommandExecutionResult.Success("Haan Boss! Camera open kar diya gaya hai.")
                 } else {
-                    CommandExecutionResult.Error("Camera app nahi mila.")
+                    CommandExecutionResult.Error("Boss, Camera app nahi mila.")
                 }
             }
             "settings" -> {
@@ -58,24 +93,24 @@ class CommandExecutor(private val context: Context) {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
-                CommandExecutionResult.Success("Settings open ho gayi hai.")
+                CommandExecutionResult.Success("Haan Boss! Settings open ho gayi hai.")
             }
             "clock" -> {
                 val intent = Intent(AlarmClock.ACTION_SHOW_ALARMS).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(intent)
-                CommandExecutionResult.Success("Clock app open ho gaya.")
+                CommandExecutionResult.Success("Haan Boss! Clock app open kar diya.")
             }
             else -> {
                 val launchIntent = context.packageManager.getLaunchIntentForPackage(target)
                 if (launchIntent != null) {
                     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     context.startActivity(launchIntent)
-                    CommandExecutionResult.Success("App launch ho gaya.")
+                    CommandExecutionResult.Success("Haan Boss! App launch ho gaya.")
                 } else {
                     // Try web or Play Store
-                    CommandExecutionResult.Error("App '$target' installed nahi hai.")
+                    CommandExecutionResult.Error("Boss, app '$target' installed nahi hai.")
                 }
             }
         }
@@ -92,9 +127,9 @@ class CommandExecutor(private val context: Context) {
         return if (intent.resolveActivity(context.packageManager) != null) {
             context.startActivity(intent)
             val timeStr = "%02d:%02d".format(hour, minute)
-            CommandExecutionResult.Success("$timeStr ka alarm set kar diya gaya hai.")
+            CommandExecutionResult.Success("Haan Boss! $timeStr ka alarm set kar diya gaya hai.")
         } else {
-            CommandExecutionResult.Error("Device par Alarm app support nahi mila.")
+            CommandExecutionResult.Error("Boss, device par Alarm app support nahi mila.")
         }
     }
 
@@ -107,14 +142,14 @@ class CommandExecutor(private val context: Context) {
 
         return if (intent.resolveActivity(context.packageManager) != null) {
             context.startActivity(intent)
-            CommandExecutionResult.Success("$destination ke liye navigation shuru kar diya.")
+            CommandExecutionResult.Success("Haan Boss! $destination ke liye navigation shuru kar diya.")
         } else {
             val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${Uri.encode(destination)}")
             val webIntent = Intent(Intent.ACTION_VIEW, webUri).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(webIntent)
-            CommandExecutionResult.Success("Google Maps open ho gaya.")
+            CommandExecutionResult.Success("Haan Boss! Google Maps open ho gaya.")
         }
     }
 
@@ -123,7 +158,7 @@ class CommandExecutor(private val context: Context) {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
-        return CommandExecutionResult.Success("'$query' YouTube par search ho gaya.")
+        return CommandExecutionResult.Success("Haan Boss! '$query' YouTube par search aur play kar rahi hoon.")
     }
 
     private fun searchWeb(query: String): CommandExecutionResult {
@@ -133,7 +168,7 @@ class CommandExecutor(private val context: Context) {
         }
         if (intent.resolveActivity(context.packageManager) != null) {
             context.startActivity(intent)
-            return CommandExecutionResult.Success("Web search open ho gaya.")
+            return CommandExecutionResult.Success("Haan Boss! Web search open ho gaya.")
         }
         val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=${Uri.encode(query)}")).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

@@ -15,6 +15,12 @@ enum class CommandIntent {
     CALENDAR_ACTION,
     SUPPORTED_PHONE_ACTION,
     NOTIFICATION_ACTION,
+    TOGGLE_FLASHLIGHT,
+    CHECK_BATTERY,
+    VOLUME_CONTROL,
+    SMART_ROUTINE,
+    DIAGNOSTICS,
+    TOGGLE_SOS_STROBE,
     UNKNOWN
 }
 
@@ -28,6 +34,9 @@ data class LoriCommand(
     @Json(name = "title") val title: String? = null,
     @Json(name = "destination") val destination: String? = null,
     @Json(name = "phoneNumber") val phoneNumber: String? = null,
+    @Json(name = "enable") val enable: Boolean? = null,
+    @Json(name = "volumeLevel") val volumeLevel: Int? = null,
+    @Json(name = "routineType") val routineType: String? = null,
     @Json(name = "requiresConfirmation") val requiresConfirmation: Boolean = false,
     @Json(name = "confirmationPrompt") val confirmationPrompt: String? = null
 )

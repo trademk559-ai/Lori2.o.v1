@@ -22,6 +22,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.FlashlightOff
+import androidx.compose.material.icons.filled.FlashlightOn
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.VolumeDown
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.GraphicEq
@@ -83,13 +92,19 @@ fun HomeScreen(
     val settings by viewModel.settings.collectAsState()
     val isBgRunning by viewModel.isBackgroundServiceRunning.collectAsState()
     val pendingWhatsAppDraft by viewModel.pendingWhatsAppDraft.collectAsState()
+    val isFlashlightOn by viewModel.isFlashlightOn.collectAsState()
+    val isSosActive by viewModel.isSosActive.collectAsState()
+    val batteryTelemetry by viewModel.batteryTelemetry.collectAsState()
 
     val quickCommands = listOf(
+        "Lori, Flashlight on karo 🔦",
+        "Lori, SOS strobe flasher chalao 🚨",
+        "Lori, Battery status check karo 🔋",
+        "Lori, Good Morning routine 🌅",
+        "Lori, System Diagnostics run karo ⚡",
         "Lori, YouTube kholo aur Arijit Singh ka gana chalao 🎵",
         "Lori, internet par dekh ke bata aaj ka mausam 🌦️",
         "Lori, Rahul ko reply kar do 'Haan shaam ko milte hain' 💬",
-        "Lori, last notification padh ke sunao 🔔",
-        "Lori, koi tagda workout song chalao ⚡",
         "Lori, kya haal hai? 😄"
     )
 
@@ -105,6 +120,31 @@ fun HomeScreen(
                 isWakeWordActive = settings.isWakeWordEnabled,
                 wakeWord = settings.wakePhrase,
                 isBgActive = isBgRunning
+            )
+        }
+
+        // Jarvis Telemetry HUD (Battery, Flashlight, SOS Strobe, AI Brain Status)
+        item {
+            JarvisTelemetryHud(
+                battery = batteryTelemetry,
+                isFlashlightOn = isFlashlightOn,
+                isSosActive = isSosActive,
+                onToggleFlashlight = { viewModel.toggleFlashlight() },
+                onToggleSos = { viewModel.toggleSosStrobe() },
+                onRefreshBattery = { viewModel.refreshBatteryTelemetry() },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
+        // Jarvis Smart Automation & Routines
+        item {
+            JarvisRoutinesSection(
+                onRunMorning = { viewModel.triggerRoutine("morning") },
+                onRunNight = { viewModel.triggerRoutine("night") },
+                onRunDiagnostics = { viewModel.triggerRoutine("diagnostics") },
+                onVolumeUp = { viewModel.adjustVolume(1) },
+                onVolumeDown = { viewModel.adjustVolume(-1) },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
         }
 
@@ -498,3 +538,331 @@ private fun FeatureCard(
         }
     }
 }
+
+@Composable
+private fun JarvisTelemetryHud(
+    battery: com.example.modules.device.DeviceController.BatteryInfo,
+    isFlashlightOn: Boolean,
+    isSosActive: Boolean,
+    onToggleFlashlight: () -> Unit,
+    onToggleSos: () -> Unit,
+    onRefreshBattery: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    ElevatedCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, Color(0xFF6750A4).copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+            .testTag("jarvis_telemetry_hud"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.90f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF10B981))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "JARVIS NEURAL CORE • ONLINE",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF10B981),
+                        letterSpacing = 0.8.sp
+                    )
+                }
+                Text(
+                    text = "Gemini 3.5 Flash",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Battery Telemetry Badge
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, Color(0xFF10B981).copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                        .clickable { onRefreshBattery() }
+                        .padding(10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.BatteryChargingFull,
+                            contentDescription = "Battery",
+                            tint = if (battery.isCharging) Color(0xFF10B981) else Color(0xFF0284C7),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text(
+                                text = "${battery.percentage}%",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = if (battery.isCharging) "Charging" else battery.chargingType,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // Flashlight Quick Toggle
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            if (isFlashlightOn) Color(0xFFF59E0B).copy(alpha = 0.15f)
+                            else MaterialTheme.colorScheme.surface
+                        )
+                        .border(
+                            1.dp,
+                            if (isFlashlightOn) Color(0xFFF59E0B) else Color.White.copy(alpha = 0.3f),
+                            RoundedCornerShape(14.dp)
+                        )
+                        .clickable { onToggleFlashlight() }
+                        .padding(10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (isFlashlightOn) Icons.Filled.FlashlightOn else Icons.Filled.FlashlightOff,
+                            contentDescription = "Flashlight",
+                            tint = if (isFlashlightOn) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text(
+                                text = if (isFlashlightOn) "Torch ON" else "Torch OFF",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isFlashlightOn) Color(0xFFF59E0B) else MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Toggle light",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // SOS Emergency Strobe Flasher Button
+                Box(
+                    modifier = Modifier
+                        .weight(0.9f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            if (isSosActive) Color(0xFFEF4444).copy(alpha = 0.20f)
+                            else MaterialTheme.colorScheme.surface
+                        )
+                        .border(
+                            1.dp,
+                            if (isSosActive) Color(0xFFEF4444) else Color(0xFFEF4444).copy(alpha = 0.35f),
+                            RoundedCornerShape(14.dp)
+                        )
+                        .clickable { onToggleSos() }
+                        .padding(10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Warning,
+                            contentDescription = "SOS Strobe",
+                            tint = Color(0xFFEF4444),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text(
+                                text = if (isSosActive) "SOS ON" else "SOS",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFEF4444)
+                            )
+                            Text(
+                                text = "Strobe alert",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun JarvisRoutinesSection(
+    onRunMorning: () -> Unit,
+    onRunNight: () -> Unit,
+    onRunDiagnostics: () -> Unit,
+    onVolumeUp: () -> Unit,
+    onVolumeDown: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = "Smart Automation & Protocols",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Morning Protocol Chip
+            Surface(
+                onClick = onRunMorning,
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xFFEA580C).copy(alpha = 0.12f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEA580C).copy(alpha = 0.3f)),
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.WbSunny,
+                        contentDescription = "Morning",
+                        tint = Color(0xFFEA580C),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Morning",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFEA580C)
+                    )
+                }
+            }
+
+            // Night Protocol Chip
+            Surface(
+                onClick = onRunNight,
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xFF6366F1).copy(alpha = 0.12f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF6366F1).copy(alpha = 0.3f)),
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Bedtime,
+                        contentDescription = "Night",
+                        tint = Color(0xFF6366F1),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Night",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF6366F1)
+                    )
+                }
+            }
+
+            // Diagnostics Chip
+            Surface(
+                onClick = onRunDiagnostics,
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xFF0284C7).copy(alpha = 0.12f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF0284C7).copy(alpha = 0.3f)),
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Speed,
+                        contentDescription = "Diagnostics",
+                        tint = Color(0xFF0284C7),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Report",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF0284C7)
+                    )
+                }
+            }
+
+            // Volume Quick Buttons
+            Surface(
+                onClick = onVolumeUp,
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+                modifier = Modifier.size(42.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Filled.VolumeUp,
+                        contentDescription = "Volume Up",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Surface(
+                onClick = onVolumeDown,
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.4f)),
+                modifier = Modifier.size(42.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Filled.VolumeDown,
+                        contentDescription = "Volume Down",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+

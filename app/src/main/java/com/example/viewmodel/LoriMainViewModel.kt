@@ -77,6 +77,17 @@ class LoriMainViewModel(application: Application) : AndroidViewModel(application
     // Incoming Call State
     val incomingCallState: StateFlow<IncomingCallInfo?> = LoriCallModule.currentCallState
 
+    val deviceController = commandExecutor.deviceController
+
+    private val _batteryTelemetry = MutableStateFlow(deviceController.getBatteryTelemetry())
+    val batteryTelemetry: StateFlow<com.example.modules.device.DeviceController.BatteryInfo> = _batteryTelemetry.asStateFlow()
+
+    private val _isFlashlightOn = MutableStateFlow(deviceController.isTorchActive())
+    val isFlashlightOn: StateFlow<Boolean> = _isFlashlightOn.asStateFlow()
+
+    private val _isSosActive = MutableStateFlow(deviceController.isSosActive())
+    val isSosActive: StateFlow<Boolean> = _isSosActive.asStateFlow()
+
     // Background Service Running State
     val isBackgroundServiceRunning: StateFlow<Boolean> = LoriForegroundService.isRunning
     val isForegroundServiceRunning: StateFlow<Boolean> = isBackgroundServiceRunning
@@ -104,6 +115,15 @@ class LoriMainViewModel(application: Application) : AndroidViewModel(application
     private val sourcesAdapter = moshi.adapter<List<GroundingSource>>(
         Types.newParameterizedType(List::class.java, GroundingSource::class.java)
     )
+
+    init {
+        // Automatically sync wake word state and acoustic sensitivity with AndroidSpeechManager
+        viewModelScope.launch {
+            settings.collect { s ->
+                voiceEngine.updateWakeWordConfig(s.isWakeWordEnabled, s.wakeWordSensitivity)
+            }
+        }
+    }
 
     fun setSelectedTab(tabIndex: Int) {
         _selectedTab.value = tabIndex
@@ -194,6 +214,85 @@ class LoriMainViewModel(application: Application) : AndroidViewModel(application
                         return@launch
                     }
                     CallAction.NONE -> {}
+                }
+            }
+
+            // Check if command confirmation is pending
+            val pendingCmd = _pendingCommandConfirmation.value
+            if (pendingCmd != null) {
+                if (lower.contains("haan") || lower.contains("yes") || lower.contains("kar do") || lower.contains("confirm")) {
+                    _pendingCommandConfirmation.value = null
+                    val exec = commandExecutor.execute(pendingCmd, userConfirmed = true)
+                    if (exec is CommandExecutionResult.Success) {
+                        voiceEngine.speak(exec.message, settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
+                    }
+                    return@launch
+                } else if (lower.contains("nahi") || lower.contains("no") || lower.contains("cancel") || lower.contains("mat karo")) {
+                    _pendingCommandConfirmation.value = null
+                    val cancelMsg = "Theek hai Boss, cancel kar diya gaya."
+                    voiceEngine.speak(cancelMsg, settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
+                    return@launch
+                }
+            }
+
+            // 1. WAKE WORD FILTER: Answer ONLY when user addresses Lori
+            val isWakeDetected = voiceEngine.isWakeWordDetected(
+                spokenText = spokenText,
+                wakePhrase = settings.value.wakePhrase,
+                sensitivity = settings.value.wakeWordSensitivity
+            )
+            if (settings.value.isWakeWordEnabled && !isWakeDetected) {
+                if (settings.value.isContinuousVoiceMode) {
+                    voiceEngine.setVoiceState(VoiceState.LISTENING, "Listening for 'Lori'...")
+                } else {
+                    val promptUser = "Haan Boss! Aadesh dene ke liye 'Lori' bol kar baat kijiye."
+                    voiceEngine.speak(promptUser, settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
+                }
+                return@launch
+            }
+
+            // 2. FRIENDLY WAKE CALL: When user specifically calls Lori ("Lori", "Hey Lori", "Lori suno")
+            if (voiceEngine.isPureWakeCall(spokenText, settings.value.wakePhrase)) {
+                val friendlyReply = voiceEngine.getFriendlyWakeCallReply()
+                dao.insertMessage(ChatMessageEntity(role = "user", text = spokenText, messageType = "voice", timestamp = System.currentTimeMillis()))
+                dao.insertMessage(ChatMessageEntity(role = "assistant", text = friendlyReply, messageType = "system", timestamp = System.currentTimeMillis()))
+                voiceEngine.speak(friendlyReply, settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
+                return@launch
+            }
+
+            // Check for Hardware & Device Commands (Flashlight, Battery, Volume, Alarms, Routines)
+            val parsedCmd = commandParser.parse(spokenText)
+            if (parsedCmd.intent != com.example.commands.CommandIntent.UNKNOWN &&
+                parsedCmd.intent != com.example.commands.CommandIntent.SEARCH_WEB) {
+                val validation = commandValidator.validate(parsedCmd)
+                if (validation is com.example.commands.CommandValidator.ValidationResult.Valid) {
+                    val execution = commandExecutor.execute(parsedCmd, userConfirmed = false)
+                    when (execution) {
+                        is CommandExecutionResult.RequiresConfirmation -> {
+                            _pendingCommandConfirmation.value = execution.command
+                            voiceEngine.speak(execution.prompt, settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
+                            dao.insertMessage(ChatMessageEntity(role = "user", text = spokenText, messageType = "voice", timestamp = System.currentTimeMillis()))
+                            dao.insertMessage(ChatMessageEntity(role = "assistant", text = execution.prompt, messageType = "system", timestamp = System.currentTimeMillis()))
+                            return@launch
+                        }
+                        is CommandExecutionResult.Success -> {
+                            _isFlashlightOn.value = deviceController.isTorchActive()
+                            _batteryTelemetry.value = deviceController.getBatteryTelemetry()
+                            voiceEngine.speak(execution.message, settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
+                            dao.insertMessage(ChatMessageEntity(role = "user", text = spokenText, messageType = "voice", timestamp = System.currentTimeMillis()))
+                            dao.insertMessage(ChatMessageEntity(role = "assistant", text = execution.message, messageType = "system", timestamp = System.currentTimeMillis()))
+                            return@launch
+                        }
+                        is CommandExecutionResult.PermissionRequired -> {
+                            voiceEngine.speak(execution.message, settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
+                            dao.insertMessage(ChatMessageEntity(role = "user", text = spokenText, messageType = "voice", timestamp = System.currentTimeMillis()))
+                            dao.insertMessage(ChatMessageEntity(role = "assistant", text = execution.message, messageType = "system", timestamp = System.currentTimeMillis()))
+                            return@launch
+                        }
+                        is CommandExecutionResult.Error -> {
+                            // Fall through to conversational AI
+                        }
+                    }
                 }
             }
 
@@ -376,6 +475,47 @@ class LoriMainViewModel(application: Application) : AndroidViewModel(application
     fun cancelPendingCommand() {
         _pendingCommandConfirmation.value = null
         voiceEngine.speak("Command cancel kar diya.", settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
+    }
+
+    fun toggleFlashlight() {
+        val (success, msg) = deviceController.toggleFlashlight()
+        _isFlashlightOn.value = deviceController.isTorchActive()
+        voiceEngine.speak(msg, settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
+    }
+
+    fun toggleSosStrobe() {
+        val (success, msg) = deviceController.toggleSosStrobe()
+        _isSosActive.value = deviceController.isSosActive()
+        _isFlashlightOn.value = deviceController.isTorchActive()
+        voiceEngine.speak(msg, settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
+    }
+
+    fun refreshBatteryTelemetry() {
+        _batteryTelemetry.value = deviceController.getBatteryTelemetry()
+    }
+
+    fun triggerRoutine(routineType: String) {
+        viewModelScope.launch {
+            val reply = when (routineType) {
+                "morning" -> deviceController.runMorningRoutine()
+                "night" -> {
+                    val res = deviceController.runNightRoutine()
+                    _isFlashlightOn.value = deviceController.isTorchActive()
+                    res
+                }
+                "diagnostics" -> deviceController.runSystemDiagnostics()
+                else -> deviceController.runSystemDiagnostics()
+            }
+            _batteryTelemetry.value = deviceController.getBatteryTelemetry()
+            dao.insertMessage(ChatMessageEntity(role = "user", text = "Trigger $routineType routine", messageType = "routine", timestamp = System.currentTimeMillis()))
+            dao.insertMessage(ChatMessageEntity(role = "assistant", text = reply, messageType = "routine", timestamp = System.currentTimeMillis()))
+            voiceEngine.speak(reply, settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
+        }
+    }
+
+    fun adjustVolume(direction: Int) {
+        val msg = deviceController.adjustVolume(direction)
+        voiceEngine.speak(msg, settings.value.ttsSpeechRate, settings.value.ttsSpeechPitch)
     }
 
     fun updateSettings(update: (LoriSettingsState) -> LoriSettingsState) {

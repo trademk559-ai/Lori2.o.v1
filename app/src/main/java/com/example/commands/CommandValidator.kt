@@ -53,6 +53,10 @@ class CommandValidator(private val context: Context) {
             CommandIntent.PAUSE_MEDIA, CommandIntent.STOP_MEDIA, CommandIntent.NOTIFICATION_ACTION -> {
                 ValidationResult.Valid
             }
+            CommandIntent.TOGGLE_FLASHLIGHT, CommandIntent.CHECK_BATTERY, CommandIntent.VOLUME_CONTROL,
+            CommandIntent.SMART_ROUTINE, CommandIntent.DIAGNOSTICS, CommandIntent.TOGGLE_SOS_STROBE -> {
+                ValidationResult.Valid
+            }
             CommandIntent.UNKNOWN -> {
                 ValidationResult.Invalid("Command not recognized as a structured phone intent.")
             }

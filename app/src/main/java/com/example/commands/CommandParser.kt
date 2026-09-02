@@ -75,11 +75,21 @@ class CommandParser {
             }
         }
 
-        // 4. PLAY_MEDIA / YOUTUBE SEARCH (e.g. "Arijit Singh ke gaane chalao", "Play songs on YouTube")
-        if (text.contains("gaana") || text.contains("gaane") || text.contains("play song") || text.contains("play music") || text.contains("chalao")) {
+        // 4. SOS STROBE / EMERGENCY BLINK (e.g. "SOS chalao", "Emergency light", "Strobe on karo")
+        if (text.contains("sos") || text.contains("emergency light") || text.contains("strobe")) {
+            return LoriCommand(
+                intent = CommandIntent.TOGGLE_SOS_STROBE,
+                title = "SOS Emergency Strobe"
+            )
+        }
+
+        // 5. PLAY_MEDIA / YOUTUBE SEARCH (e.g. "Arijit Singh ke gaane chalao", "Play songs on YouTube")
+        if (text.contains("gaana") || text.contains("gaane") || text.contains("play song") || text.contains("play music") || text.contains("song chalao") || text.contains("music chalao")) {
             val songQuery = text
                 .replace("gaana chalao", "")
                 .replace("gaane chalao", "")
+                .replace("song chalao", "")
+                .replace("music chalao", "")
                 .replace("play song", "")
                 .replace("play", "")
                 .replace("sunao", "")
@@ -133,6 +143,63 @@ class CommandParser {
             return LoriCommand(
                 intent = CommandIntent.SET_REMINDER,
                 title = note.ifBlank { "Important Reminder" }
+            )
+        }
+
+        // 8. FLASHLIGHT / TORCH (e.g. "Torch on karo", "Flashlight band karo", "Batti jalao")
+        if (text.contains("torch") || text.contains("flashlight") || text.contains("batti")) {
+            val turnOff = text.contains("off") || text.contains("band") || text.contains("bujhao")
+            return LoriCommand(
+                intent = CommandIntent.TOGGLE_FLASHLIGHT,
+                enable = !turnOff,
+                title = if (turnOff) "Flashlight Off" else "Flashlight On"
+            )
+        }
+
+        // 9. CHECK_BATTERY (e.g. "Battery kitni hai", "Battery status", "Charge check karo")
+        if (text.contains("battery") || text.contains("charge kitna") || text.contains("battery level") || text.contains("charging status")) {
+            return LoriCommand(
+                intent = CommandIntent.CHECK_BATTERY,
+                title = "Battery Telemetry"
+            )
+        }
+
+        // 10. VOLUME_CONTROL (e.g. "Volume badhao", "Aawaz kam karo", "Mute karo")
+        if (text.contains("volume") || text.contains("aawaz")) {
+            val direction = when {
+                text.contains("badhao") || text.contains("tez") || text.contains("up") || text.contains("high") -> 1
+                text.contains("kam") || text.contains("dheemi") || text.contains("down") || text.contains("low") -> -1
+                text.contains("mute") || text.contains("band") -> 0
+                else -> 1
+            }
+            return LoriCommand(
+                intent = CommandIntent.VOLUME_CONTROL,
+                volumeLevel = direction,
+                title = "Volume Adjustment"
+            )
+        }
+
+        // 11. SMART_ROUTINE (e.g. "Good morning", "Subah ka update", "Good night", "Sone ja raha hoon")
+        if (text.contains("good morning") || text.contains("subah ho gayi") || text.contains("morning routine")) {
+            return LoriCommand(
+                intent = CommandIntent.SMART_ROUTINE,
+                routineType = "morning",
+                title = "Morning Protocol"
+            )
+        }
+        if (text.contains("good night") || text.contains("shubh ratri") || text.contains("sone ja raha")) {
+            return LoriCommand(
+                intent = CommandIntent.SMART_ROUTINE,
+                routineType = "night",
+                title = "Night Protocol"
+            )
+        }
+
+        // 12. SYSTEM DIAGNOSTICS (e.g. "Diagnostics", "System status", "Jarvis status report")
+        if (text.contains("diagnostic") || text.contains("status report") || text.contains("system status") || text.contains("health check")) {
+            return LoriCommand(
+                intent = CommandIntent.DIAGNOSTICS,
+                title = "System Diagnostics"
             )
         }
 

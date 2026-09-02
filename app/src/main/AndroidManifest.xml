@@ -16,6 +16,9 @@
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FLASHLIGHT" />
+
+    <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
 
     <!-- Queries for third-party integrations (WhatsApp, YouTube, Speech Recognition) -->
     <queries>

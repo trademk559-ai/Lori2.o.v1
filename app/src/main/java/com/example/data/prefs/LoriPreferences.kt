@@ -10,6 +10,7 @@ data class LoriSettingsState(
     val isVoiceAssistantEnabled: Boolean = true,
     val isWakeWordEnabled: Boolean = true,
     val wakePhrase: String = "Lori",
+    val wakeWordSensitivity: Float = 0.75f, // Range: 0.1f (Conservative) to 1.0f (Ultra-Sensitive)
     val isContinuousVoiceMode: Boolean = false,
     val isBackgroundModeEnabled: Boolean = true,
     val isInternetSearchEnabled: Boolean = true,
@@ -41,6 +42,7 @@ class LoriPreferences(context: Context) {
             isVoiceAssistantEnabled = prefs.getBoolean("voice_assistant_enabled", true),
             isWakeWordEnabled = prefs.getBoolean("wake_word_enabled", true),
             wakePhrase = prefs.getString("wake_phrase", "Lori") ?: "Lori",
+            wakeWordSensitivity = prefs.getFloat("wake_word_sensitivity", 0.75f),
             isContinuousVoiceMode = prefs.getBoolean("continuous_voice_mode", false),
             isBackgroundModeEnabled = prefs.getBoolean("background_mode_enabled", true),
             isInternetSearchEnabled = prefs.getBoolean("internet_search_enabled", true),
@@ -68,6 +70,7 @@ class LoriPreferences(context: Context) {
             putBoolean("voice_assistant_enabled", newState.isVoiceAssistantEnabled)
             putBoolean("wake_word_enabled", newState.isWakeWordEnabled)
             putString("wake_phrase", newState.wakePhrase)
+            putFloat("wake_word_sensitivity", newState.wakeWordSensitivity)
             putBoolean("continuous_voice_mode", newState.isContinuousVoiceMode)
             putBoolean("background_mode_enabled", newState.isBackgroundModeEnabled)
             putBoolean("internet_search_enabled", newState.isInternetSearchEnabled)

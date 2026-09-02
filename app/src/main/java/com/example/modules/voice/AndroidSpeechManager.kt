@@ -84,6 +84,12 @@ class AndroidSpeechManager private constructor(private val context: Context) {
     private var onFinalSpeechResult: ((String) -> Unit)? = null
     private var onSpeechError: ((String) -> Unit)? = null
 
+    // Wake Word Integration & Dynamic Acoustic Sensitivity
+    private var isWakeWordActive = true
+    private var wakeWordSensitivity = 0.75f
+    val currentSensitivity: Float get() = wakeWordSensitivity
+    val isWakeWordFilterActive: Boolean get() = isWakeWordActive
+
     // Long Utterance & Pause Accumulation Buffer
     private val accumulatedSpeech = StringBuilder()
     private var speechPauseDebounceJob: Job? = null
@@ -227,20 +233,23 @@ class AndroidSpeechManager private constructor(private val context: Context) {
                     putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
                     putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
 
-                    // Robust Silence Thresholds to allow natural speech pauses
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, DEFAULT_SILENCE_WINDOW_MS)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, DEFAULT_SILENCE_WINDOW_MS)
-                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, DEFAULT_SILENCE_WINDOW_MS)
+                    // Dynamic Silence Thresholds based on sensitivity:
+                    // High sensitivity (0.9) -> snappier 1800ms silence detection
+                    // Conservative sensitivity (0.2) -> patient 3600ms silence window
+                    val dynamicSilenceMs = (1600L + ((1.0f - wakeWordSensitivity) * 2200L)).toLong()
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, dynamicSilenceMs)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, dynamicSilenceMs)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, dynamicSilenceMs)
                     putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("hi-IN", "en-IN", "hi-Latn", "en-US"))
                 }
 
                 requestAudioFocus()
                 speechRecognizer?.startListening(intent)
                 _voiceState.value = VoiceState.LISTENING
-                _statusMessage.value = if (_isContinuousMode.value) {
-                    "Lori sun rahi hai... (Hands-Free Active)"
-                } else {
-                    "Lori sun rahi hai... (Hindi / Hinglish)"
+                _statusMessage.value = when {
+                    !isWakeWordActive -> "Lori sun rahi hai... (Direct Speech / No Wake Word)"
+                    _isContinuousMode.value -> "Lori sun rahi hai... (Wake Word: 'Lori' Active)"
+                    else -> "Lori sun rahi hai... ('Lori' boliye)"
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting speech recognition", e)
@@ -266,7 +275,8 @@ class AndroidSpeechManager private constructor(private val context: Context) {
             }
 
             override fun onRmsChanged(rmsdB: Float) {
-                _rmsDb.value = rmsdB.coerceIn(0f, 10f)
+                val scaledRms = (rmsdB * (0.6f + (wakeWordSensitivity * 0.7f))).coerceIn(0f, 10f)
+                _rmsDb.value = scaledRms
             }
 
             override fun onBufferReceived(buffer: ByteArray?) {}
@@ -361,6 +371,39 @@ class AndroidSpeechManager private constructor(private val context: Context) {
     // =========================================================================
     // 3. Continuous Mode Controls (ON / OFF / Pause / Resume / Stop)
     // =========================================================================
+
+    /**
+     * Integrates with AndroidSpeechManager lifecycle:
+     * Dynamically updates wake word detection toggle and sensitivity threshold.
+     * Recalculates acoustic parameters and seamlessly re-configures active listening session if running.
+     */
+    fun updateWakeWordConfig(enabled: Boolean, sensitivity: Float) {
+        val clampedSensitivity = sensitivity.coerceIn(0.1f, 1.0f)
+        val enabledChanged = isWakeWordActive != enabled
+        val sensitivityChanged = kotlin.math.abs(wakeWordSensitivity - clampedSensitivity) > 0.02f
+
+        isWakeWordActive = enabled
+        wakeWordSensitivity = clampedSensitivity
+
+        Log.d(TAG, "WakeWord Config: enabled=$enabled, sensitivity=$clampedSensitivity")
+
+        if ((enabledChanged || sensitivityChanged) &&
+            _voiceState.value == VoiceState.LISTENING &&
+            !isPaused &&
+            textToSpeech?.isSpeaking != true
+        ) {
+            mainHandler.post {
+                if (_voiceState.value == VoiceState.LISTENING && !isPaused && textToSpeech?.isSpeaking != true) {
+                    stopListening()
+                    startListeningInternal(activeLanguageCode)
+                }
+            }
+        }
+    }
+
+    fun getComputedSilenceWindowMs(): Long {
+        return (1600L + ((1.0f - wakeWordSensitivity) * 2200L)).toLong()
+    }
 
     fun setContinuousMode(enabled: Boolean) {
         _isContinuousMode.value = enabled

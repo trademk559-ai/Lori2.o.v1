@@ -76,6 +76,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.modules.notifications.LoriNotificationManager
 import com.example.modules.settings.PermissionHelper
+import com.example.modules.voice.VoiceState
 import com.example.ui.components.ExportChatDialog
 import com.example.ui.theme.LoriCyanSecondary
 import com.example.ui.theme.LoriIndigoPrimary
@@ -90,6 +91,7 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsState()
     val permissions by viewModel.permissionStatus.collectAsState()
     val messages by viewModel.allMessages.collectAsState()
+    val voiceState by viewModel.voiceState.collectAsState()
 
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var showExportChatDialog by remember { mutableStateOf(false) }
@@ -455,16 +457,41 @@ fun SettingsScreen(
             }
         }
 
-        // Section 7: Data & Privacy
+        // Section 7: Privacy & Telemetry
         item {
-            SettingsCategoryCard(title = "Privacy & Security Telemetry") {
+            SettingsCategoryCard(title = "Privacy & Telemetry") {
                 Text(
-                    text = "Lori values your privacy. Sensor controls, background indicators, and the emergency kill switch can be inspected at any time.",
+                    text = "Lori values your privacy. Acoustic sensor triggers, wake word filtering, and hardware telemetry can be monitored and fine-tuned here.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Dedicated Wake Word & Acoustic Sensitivity Settings Panel
+                WakeWordPrivacyPanel(
+                    isWakeWordEnabled = settings.isWakeWordEnabled,
+                    wakePhrase = settings.wakePhrase,
+                    sensitivity = settings.wakeWordSensitivity,
+                    voiceState = voiceState,
+                    onToggleWakeWord = { enabled ->
+                        viewModel.updateSettings { it.copy(isWakeWordEnabled = enabled) }
+                    },
+                    onSensitivityChanged = { newSensitivity ->
+                        viewModel.updateSettings { it.copy(wakeWordSensitivity = newSensitivity) }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Chat Data & Emergency Controls",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedButton(
                     onClick = { showExportChatDialog = true },
@@ -669,6 +696,259 @@ private fun PermissionStatusRow(
                     color = if (isGranted) Color(0xFF10B981) else Color(0xFFEF4444),
                     fontWeight = FontWeight.Bold
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WakeWordPrivacyPanel(
+    isWakeWordEnabled: Boolean,
+    wakePhrase: String,
+    sensitivity: Float,
+    voiceState: VoiceState,
+    onToggleWakeWord: (Boolean) -> Unit,
+    onSensitivityChanged: (Float) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("wake_word_privacy_panel")
+            .border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(16.dp)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.75f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header with Icon, Title & Toggle Switch
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(
+                                if (isWakeWordEnabled) LoriIndigoPrimary.copy(alpha = 0.15f)
+                                else MaterialTheme.colorScheme.surfaceVariant
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isWakeWordEnabled) Icons.Filled.Mic else Icons.Filled.NotificationsOff,
+                            contentDescription = null,
+                            tint = if (isWakeWordEnabled) LoriIndigoPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Wake Word Detection ($wakePhrase)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (isWakeWordEnabled) {
+                                "Filtered by '$wakePhrase' keyword trigger"
+                            } else {
+                                "Direct speech processing without wake phrase"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Switch(
+                    checked = isWakeWordEnabled,
+                    onCheckedChange = onToggleWakeWord,
+                    modifier = Modifier.testTag("toggle_wake_word_privacy"),
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = LoriIndigoPrimary
+                    )
+                )
+            }
+
+            // Divider
+            Spacer(modifier = Modifier.height(14.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Sensitivity Level Header & Badge
+            val sensitivityPercent = (sensitivity * 100).toInt()
+            val (levelName, levelColor, levelDesc) = when {
+                sensitivity < 0.40f -> Triple(
+                    "Conservative",
+                    Color(0xFF10B981),
+                    "Strict keyword matching; eliminates accidental activations in noisy rooms."
+                )
+                sensitivity <= 0.75f -> Triple(
+                    "Balanced (Standard)",
+                    Color(0xFF3B82F6),
+                    "Optimal balance of fast recognition and robust false-trigger rejection."
+                )
+                else -> Triple(
+                    "Ultra-Sensitive",
+                    Color(0xFF8B5CF6),
+                    "High acoustic capture; responds easily to quiet whispers with snappy response."
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Speed,
+                        contentDescription = null,
+                        tint = levelColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Acoustic Sensitivity",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = levelColor.copy(alpha = 0.15f)
+                ) {
+                    Text(
+                        text = "$levelName ($sensitivityPercent%)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = levelColor,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = levelDesc,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Preset Chips
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val presets = listOf(
+                    0.30f to "Low (30%)",
+                    0.75f to "Balanced (75%)",
+                    0.95f to "High (95%)"
+                )
+                presets.forEach { (presetValue, label) ->
+                    val isSelected = kotlin.math.abs(sensitivity - presetValue) < 0.08f
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { onSensitivityChanged(presetValue) },
+                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = levelColor,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Continuous Slider
+            Slider(
+                value = sensitivity,
+                onValueChange = onSensitivityChanged,
+                valueRange = 0.10f..1.0f,
+                steps = 17,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("slider_wake_word_sensitivity"),
+                colors = SliderDefaults.colors(
+                    thumbColor = levelColor,
+                    activeTrackColor = levelColor,
+                    inactiveTrackColor = levelColor.copy(alpha = 0.2f)
+                )
+            )
+
+            // Real-Time SpeechManager Lifecycle & Telemetry Status Card
+            val computedSilenceMs = (1600L + ((1.0f - sensitivity) * 2200L)).toLong()
+            val ampScale = "%.1f".format(0.6f + (sensitivity * 0.7f))
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        when (voiceState) {
+                                            VoiceState.LISTENING, VoiceState.USER_SPEAKING -> Color(0xFF10B981)
+                                            VoiceState.SPEAKING -> Color(0xFF3B82F6)
+                                            VoiceState.PROCESSING -> Color(0xFFF59E0B)
+                                            else -> Color.Gray
+                                        }
+                                    )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "SpeechManager: ${voiceState.name}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Text(
+                            text = "Silence Window: ${computedSilenceMs}ms",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Acoustic Gain: ${ampScale}x • Real-time lifecycle binding to AndroidSpeechManager",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
